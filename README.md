@@ -1,6 +1,12 @@
 # FindIP Shield JavaScript SDK
 
+[![npm version](https://img.shields.io/npm/v/%40findip%2Fshield.svg)](https://www.npmjs.com/package/@findip/shield)
+[![CI](https://github.com/findip-net/findip-shield-js/actions/workflows/ci.yml/badge.svg)](https://github.com/findip-net/findip-shield-js/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/%40findip%2Fshield.svg)](LICENSE)
+
 [FindIP Shield](https://findip.net/docs/shield) adds visitor risk intelligence to a website. The SDK reports VPN, proxy, Tor, relay, hosting, datacenter, malicious-IP, and network signals without collecting form values.
+
+Published on npm as [`@findip/shield`](https://www.npmjs.com/package/@findip/shield).
 
 ## Install from npm
 
@@ -96,4 +102,3 @@ Report suspected vulnerabilities privately to [info@findip.net](mailto:info@find
 ## License
 
 [MIT](LICENSE)
-

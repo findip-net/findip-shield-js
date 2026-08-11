@@ -1,6 +1,6 @@
 {
   "name": "@findip/shield",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Privacy-conscious browser SDK for FindIP Shield visitor risk detection",
   "type": "module",
   "main": "./dist/findip-shield.cjs",
@@ -65,4 +65,3 @@
     "vitest": "^3.2.1"
   }
 }
-

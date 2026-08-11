@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented here.
 
+## 1.0.3 - 2026-08-11
+
+- Publish releases from GitHub Actions using npm trusted publishing.
+- Generate npm provenance automatically through the OIDC release workflow.
+
 ## 1.0.2 - 2026-08-10
 
 - Publish the SDK from its public source repository.
@@ -17,4 +22,3 @@ All notable changes to this package are documented here.
 ## 1.0.0 - 2026-08-07
 
 - Initial browser SDK release.
-

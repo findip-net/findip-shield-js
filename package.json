@@ -1,0 +1,68 @@
+{
+  "name": "@findip/shield",
+  "version": "1.0.2",
+  "description": "Privacy-conscious browser SDK for FindIP Shield visitor risk detection",
+  "type": "module",
+  "main": "./dist/findip-shield.cjs",
+  "module": "./dist/findip-shield.esm.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/findip-shield.esm.js",
+      "require": "./dist/findip-shield.cjs",
+      "default": "./dist/findip-shield.esm.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": true,
+  "homepage": "https://findip.net/docs/shield/javascript-sdk",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/findip-net/findip-shield-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/findip-net/findip-shield-js/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vite build && tsc --emitDeclarationOnly",
+    "check:package": "npm run build && node scripts/check-package.mjs",
+    "prepack": "npm run test && npm run typecheck && npm run lint && npm run check:package",
+    "dev": "vite build --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src test",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "findip",
+    "fraud-detection",
+    "ip-intelligence",
+    "risk",
+    "vpn-detection",
+    "proxy-detection",
+    "tor-detection",
+    "browser-sdk",
+    "typescript"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^9.28.0",
+    "@types/node": "^22.15.29",
+    "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.5",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.33.1",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.1"
+  }
+}
+

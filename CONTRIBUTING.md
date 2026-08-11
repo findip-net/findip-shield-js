@@ -14,3 +14,4 @@ npm run build
 
 Include tests for behavior changes and describe any compatibility, privacy, payload, or bundle-size impact.
 
+Official maintainer commits, pushes, and releases follow the [FindIP public maintenance identity policy](https://github.com/findip-net/.github/blob/main/CONTRIBUTING.md#maintainer-publishing-identity).

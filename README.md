@@ -54,6 +54,12 @@ const { sessionId } = FindIP.getSession();
 
 For reproducible deployments, use a [pinned release with SRI](https://findip.net/docs/shield/quickstart) instead of the auto-updating `v1.js` alias.
 
+### Version policy
+
+npm and CDN releases use the same SDK semantic version. The mutable `v1.js`
+alias serves the latest compatible 1.x SDK, while versioned CDN URLs are
+immutable and can be verified with SRI.
+
 ## Consent
 
 Shield supports a direct consent API and Google Consent Mode-style storage signals:

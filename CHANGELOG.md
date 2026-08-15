@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented here.
 
+## 1.0.4 - 2026-08-15
+
+- Align the npm and CDN release versions and document the shared version policy.
+- Publish a canonical immutable CDN artifact for reproducible script-tag installations.
+
 ## 1.0.3 - 2026-08-11
 
 - Publish releases from GitHub Actions using npm trusted publishing.

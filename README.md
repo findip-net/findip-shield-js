@@ -8,6 +8,12 @@
 
 Published on npm as [`@findip/shield`](https://www.npmjs.com/package/@findip/shield).
 
+## See Shield in action
+
+[![Watch the 22-second FindIP Shield overview](https://www.findip.net/assets/videos/shield-signup-flowchart-poster.webp)](https://www.findip.net/assets/videos/shield-signup-flowchart.mp4)
+
+[Watch the 22-second overview video](https://www.findip.net/assets/videos/shield-signup-flowchart.mp4) or [explore FindIP Shield](https://www.findip.net/shield/overview).
+
 ## Install from npm
 
 ```bash

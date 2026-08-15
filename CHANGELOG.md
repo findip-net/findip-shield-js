@@ -2,6 +2,10 @@
 
 All notable changes to this package are documented here.
 
+## 1.0.5 - 2026-08-15
+
+- Add the Shield overview video preview to the GitHub and npm package documentation.
+
 ## 1.0.4 - 2026-08-15
 
 - Align the npm and CDN release versions and document the shared version policy.

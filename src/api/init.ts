@@ -5,7 +5,12 @@ import {
   SDK_VERSION,
 } from '../core/config';
 import { applyConsent, isTrackingAllowed } from '../core/consent';
-import { initializeSessionIds, refreshSessionId } from '../core/session-ids';
+import {
+  hasSessionStarted,
+  initializeSessionIds,
+  markSessionStarted,
+  refreshSessionId,
+} from '../core/session-ids';
 import { state } from '../core/state';
 import { attachFormListeners, inferFormEvent, observeFormViews, scanFormMetadata } from '../collectors/forms';
 import { inferPageEvent } from '../collectors/url-inference';
@@ -52,7 +57,10 @@ async function sendAutoPageEvents(): Promise<void> {
   if (state.pageViewSent) return;
   state.pageViewSent = true;
 
-  await trackEvent('session_start', { source: 'auto' });
+  if (state.config && !hasSessionStarted(state.config)) {
+    markSessionStarted(state.config);
+    await trackEvent('session_start', { source: 'auto' });
+  }
   await trackEvent('page_view', { source: 'auto' });
 
   const inference = inferPageEvent();

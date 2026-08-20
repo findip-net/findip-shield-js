@@ -1,5 +1,7 @@
 import {
   SESSION_COOKIE_NAME,
+  SESSION_STARTED_COOKIE_NAME,
+  SESSION_STARTED_STORAGE_KEY,
   VISITOR_COOKIE_NAME,
   type ResolvedConfig,
 } from './config';
@@ -24,6 +26,32 @@ export function initializeSessionIds(config: ResolvedConfig): void {
 
 export function getSession(): { sessionId: string; visitorId: string | null } {
   return { ...state.session };
+}
+
+export function hasSessionStarted(config: ResolvedConfig): boolean {
+  const sessionId = state.session.sessionId;
+  const maxAge = config.sessionCookieDurationMinutes * 60;
+  const marker =
+    getCookie(SESSION_STARTED_COOKIE_NAME) ??
+    getSessionStorage(SESSION_STARTED_STORAGE_KEY) ??
+    getMemoryFallback(SESSION_STARTED_STORAGE_KEY);
+
+  if (!sessionId || marker !== sessionId) return false;
+
+  setCookie(SESSION_STARTED_COOKIE_NAME, sessionId, maxAge);
+  setSessionStorage(SESSION_STARTED_STORAGE_KEY, sessionId);
+  setMemoryFallback(SESSION_STARTED_STORAGE_KEY, sessionId);
+  return true;
+}
+
+export function markSessionStarted(config: ResolvedConfig): void {
+  const sessionId = state.session.sessionId;
+  if (!sessionId) return;
+
+  const maxAge = config.sessionCookieDurationMinutes * 60;
+  setCookie(SESSION_STARTED_COOKIE_NAME, sessionId, maxAge);
+  setSessionStorage(SESSION_STARTED_STORAGE_KEY, sessionId);
+  setMemoryFallback(SESSION_STARTED_STORAGE_KEY, sessionId);
 }
 
 function resolveSessionId(config: ResolvedConfig): string {

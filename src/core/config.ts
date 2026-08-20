@@ -45,8 +45,10 @@ export interface ResolvedConfig extends Required<
 export const DEFAULT_ENDPOINT = 'https://shield.findip.net/v1/shield/track';
 export const DEFAULT_MAX_PAYLOAD_BYTES = 32_768;
 export const SESSION_COOKIE_NAME = '_fip_sid';
+export const SESSION_STARTED_COOKIE_NAME = '_fip_ss';
 export const VISITOR_COOKIE_NAME = '_fip_vid';
 export const SESSION_STORAGE_KEY = '_fip_sid';
+export const SESSION_STARTED_STORAGE_KEY = '_fip_ss';
 export const QUEUE_MAX_SIZE = 20;
 
 export const VALID_EVENTS = new Set([

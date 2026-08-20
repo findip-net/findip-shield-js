@@ -1,4 +1,5 @@
 import type { ConsentState, PrivacyMode, ResolvedConfig } from './config';
+import type { TrackResponse } from './transport';
 
 export interface SessionInfo {
   sessionId: string;
@@ -9,6 +10,7 @@ export interface QueuedEvent {
   payload: unknown;
   attempts: number;
   useBeacon?: boolean;
+  resolve: (response: TrackResponse | null) => void;
 }
 
 export interface SDKState {
@@ -23,6 +25,7 @@ export interface SDKState {
   session: SessionInfo;
   trackingEnabled: boolean;
   queue: QueuedEvent[];
+  queueProcessing: boolean;
   formListenersAttached: boolean;
   pageViewSent: boolean;
 }
@@ -41,6 +44,7 @@ export const state: SDKState = {
   },
   trackingEnabled: true,
   queue: [],
+  queueProcessing: false,
   formListenersAttached: false,
   pageViewSent: false,
 };
@@ -53,6 +57,7 @@ export function resetState(): void {
   state.session = { sessionId: '', visitorId: null };
   state.trackingEnabled = true;
   state.queue = [];
+  state.queueProcessing = false;
   state.formListenersAttached = false;
   state.pageViewSent = false;
 }

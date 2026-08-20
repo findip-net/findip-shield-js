@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented here.
 
+## 1.0.6 - 2026-08-20
+
+- Serialize queued event delivery so concurrent startup and form events cannot send the same payload twice.
+- Preserve the response associated with each queued tracking call.
+
 ## 1.0.5 - 2026-08-15
 
 - Add the Shield overview video preview to the GitHub and npm package documentation.

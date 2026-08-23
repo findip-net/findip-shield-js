@@ -3,11 +3,13 @@ import {
   SDK_NAME,
   SDK_VERSION,
   VALID_EVENTS,
+  type Integration,
   type PrivacyMode,
 } from './config';
 import { getEffectivePrivacyMode, getRetentionHint } from './consent';
 import { state } from './state';
 import { collectBrowserContext } from '../collectors/browser';
+import { isGtmPresent } from '../collectors/gtm';
 import { collectPageContext } from '../collectors/page';
 import type { FormMetadata } from '../collectors/forms';
 import { sanitizeCustomerContext } from '../utils/safe';
@@ -130,11 +132,10 @@ function encodedLength(value: string): number {
   return value.length;
 }
 
-function detectIntegration(): string {
-  if (typeof window === 'undefined') return 'javascript';
-  const w = window as Window & { google_tag_manager?: unknown; dataLayer?: unknown[] };
-  if (w.google_tag_manager || w.dataLayer) return 'gtm';
-  return 'javascript';
+function detectIntegration(): Integration {
+  const override = state.config?.integration;
+  if (override) return override;
+  return isGtmPresent() ? 'gtm' : 'javascript';
 }
 
 export function isValidContextField(key: string): boolean {

@@ -5,6 +5,7 @@ export const SDK_VERSION = typeof __SDK_VERSION__ !== 'undefined' ? __SDK_VERSIO
 
 export type PrivacyMode = 'strict' | 'balanced' | 'advanced';
 export type NoConsentMode = 'strict' | 'disabled';
+export type Integration = 'javascript' | 'gtm' | 'wordpress' | 'woocommerce' | 'shopify';
 
 export type ConsentState =
   | boolean
@@ -22,6 +23,7 @@ export interface FindIPConfig {
   pushToDataLayer?: boolean;
   consentRequired?: boolean;
   noConsentMode?: NoConsentMode;
+  integration?: string;
   endpoint?: string;
   debug?: boolean;
   maxPayloadBytes?: number;
@@ -32,7 +34,12 @@ export interface FindIPConfig {
 export interface ResolvedConfig extends Required<
   Omit<
     FindIPConfig,
-    'siteKey' | 'privacyMode' | 'autoTrack' | 'autoDetectForms' | 'pushToDataLayer'
+    | 'siteKey'
+    | 'privacyMode'
+    | 'autoTrack'
+    | 'autoDetectForms'
+    | 'pushToDataLayer'
+    | 'integration'
   >
 > {
   siteKey: string;
@@ -40,6 +47,8 @@ export interface ResolvedConfig extends Required<
   autoTrack: boolean;
   autoDetectForms: boolean;
   pushToDataLayer: boolean;
+  // null = infer from the page environment (gtm vs javascript) per event
+  integration: Integration | null;
 }
 
 export const DEFAULT_ENDPOINT = 'https://shield.findip.net/v1/shield/track';
@@ -75,6 +84,14 @@ export const VALID_EVENTS = new Set([
   'custom',
 ]);
 
+export const VALID_INTEGRATIONS = new Set<Integration>([
+  'javascript',
+  'gtm',
+  'wordpress',
+  'woocommerce',
+  'shopify',
+]);
+
 export const ALLOWED_CONTEXT_FIELDS = new Set([
   'user_id_hash',
   'email_hash',
@@ -101,12 +118,19 @@ export function resolveConfig(partial: FindIPConfig): ResolvedConfig {
     pushToDataLayer: partial.pushToDataLayer ?? true,
     consentRequired: partial.consentRequired ?? false,
     noConsentMode: partial.noConsentMode ?? 'strict',
+    integration: normalizeIntegration(partial.integration),
     endpoint: partial.endpoint ?? DEFAULT_ENDPOINT,
     debug: partial.debug ?? false,
     maxPayloadBytes: partial.maxPayloadBytes ?? DEFAULT_MAX_PAYLOAD_BYTES,
     sessionCookieDurationMinutes: partial.sessionCookieDurationMinutes ?? 30,
     visitorCookieDurationDays: partial.visitorCookieDurationDays ?? 30,
   };
+}
+
+function normalizeIntegration(value: string | undefined): Integration | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase() as Integration;
+  return VALID_INTEGRATIONS.has(normalized) ? normalized : null;
 }
 
 export function parseScriptTagConfig(): Partial<FindIPConfig> {
@@ -134,6 +158,7 @@ export function parseScriptTagConfig(): Partial<FindIPConfig> {
     config.consentRequired = dataset.consentRequired === 'true';
   }
   if (dataset.noConsentMode) config.noConsentMode = dataset.noConsentMode as NoConsentMode;
+  if (dataset.integration) config.integration = dataset.integration;
   if (dataset.debug !== undefined) config.debug = dataset.debug === 'true';
   if (dataset.endpoint) config.endpoint = dataset.endpoint;
 

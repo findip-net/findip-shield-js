@@ -28,6 +28,9 @@ export interface SDKState {
   queueProcessing: boolean;
   formListenersAttached: boolean;
   pageViewSent: boolean;
+  // distinguishes a dataLayer the SDK created (for pushRiskResult) from one
+  // the page already had — only the latter indicates a GTM installation
+  dataLayerCreatedBySdk: boolean;
 }
 
 export const state: SDKState = {
@@ -47,6 +50,7 @@ export const state: SDKState = {
   queueProcessing: false,
   formListenersAttached: false,
   pageViewSent: false,
+  dataLayerCreatedBySdk: false,
 };
 
 export function resetState(): void {
@@ -60,4 +64,5 @@ export function resetState(): void {
   state.queueProcessing = false;
   state.formListenersAttached = false;
   state.pageViewSent = false;
+  state.dataLayerCreatedBySdk = false;
 }

@@ -2,6 +2,21 @@
 
 All notable changes to this package are documented here.
 
+## 1.0.8 - 2026-08-23
+
+- Fix integration attribution: the SDK no longer reports `gtm` for plain
+  JavaScript installations after creating `window.dataLayer` itself; only a
+  pre-existing dataLayer or the GTM container global counts as a GTM install.
+- Add a validated `integration` init option (and `data-integration` script-tag
+  attribute) so first-party adapters can identify themselves as `wordpress`,
+  `woocommerce`, or `shopify`; unknown values fall back to auto-detection.
+
+## 1.0.7 - 2026-08-20
+
+- Persist a session-start marker (cookie, session storage, and in-memory
+  fallbacks) so full page navigations within one session emit `page_view`
+  without a duplicate `session_start`.
+
 ## 1.0.6 - 2026-08-20
 
 - Serialize queued event delivery so concurrent startup and form events cannot send the same payload twice.

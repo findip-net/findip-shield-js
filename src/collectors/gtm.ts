@@ -22,7 +22,10 @@ export interface DataLayerEntry {
 export function ensureDataLayer(): unknown[] {
   if (typeof window === 'undefined') return [];
   const w = window as Window & { dataLayer?: unknown[] };
-  if (!w.dataLayer) w.dataLayer = [];
+  if (!w.dataLayer) {
+    w.dataLayer = [];
+    state.dataLayerCreatedBySdk = true;
+  }
   return w.dataLayer;
 }
 
@@ -53,7 +56,8 @@ export function pushRiskResult(response: TrackResponse | null): void {
 export function isGtmPresent(): boolean {
   if (typeof window === 'undefined') return false;
   const w = window as Window & { google_tag_manager?: unknown; dataLayer?: unknown[] };
-  return Boolean(w.google_tag_manager || w.dataLayer);
+  if (w.google_tag_manager) return true;
+  return Boolean(w.dataLayer) && !state.dataLayerCreatedBySdk;
 }
 
 export function readDataLayerContext(): Record<string, unknown> {

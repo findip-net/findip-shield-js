@@ -38,6 +38,7 @@ export async function trackEvent(
   }
 
   refreshSessionId(state.config);
+  await state.identityReady;
 
   const event: EventMeta = {
     name: eventName,
@@ -47,9 +48,10 @@ export async function trackEvent(
     detection_method: options.detection_method,
   };
 
-  const gtmContext = readDataLayerContext();
+  // identify() beats whatever the page pushed to the dataLayer
+  const autoContext = { ...readDataLayerContext(), ...state.identity };
   const payload = enforcePayloadSize(
-    buildPayload(event, options.formMeta, gtmContext),
+    buildPayload(event, options.formMeta, autoContext),
     state.config.maxPayloadBytes,
   );
 
@@ -68,8 +70,10 @@ export async function track(
   if (!isTrackingAllowed()) return null;
 
   refreshSessionId(state.config);
+  await state.identityReady;
 
-  const sanitizedContext = sanitizeCustomerContext(context);
+  // explicit per-event context beats the identity set via identify()
+  const sanitizedContext = sanitizeCustomerContext({ ...state.identity, ...context });
   const event: EventMeta = {
     name: eventName,
     source: 'manual',

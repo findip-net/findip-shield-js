@@ -63,9 +63,12 @@ function sanitizeFieldValue(key: string, value: unknown): unknown {
     return /^[A-Z]{3}$/.test(trimmed) ? trimmed : undefined;
   }
 
-  if (containsSensitivePattern(trimmed)) return undefined;
+  // Cap before pattern-matching: what is sent is what gets checked, and the
+  // patterns never run over arbitrarily long input.
+  const capped = trimmed.slice(0, 256);
+  if (containsSensitivePattern(capped)) return undefined;
 
-  return trimmed.slice(0, 256);
+  return capped;
 }
 
 function sanitizeCustomObject(obj: Record<string, unknown>): Record<string, unknown> {
@@ -84,11 +87,10 @@ function sanitizeCustomObject(obj: Record<string, unknown>): Record<string, unkn
 
     if (typeof value === 'string') {
       const trimmed = value.trim();
-      if (!trimmed || containsSensitivePattern(trimmed)) continue;
-      if (trimmed.length <= 256) {
-        result[key] = trimmed;
-        count++;
-      }
+      if (!trimmed || trimmed.length > 256) continue;
+      if (containsSensitivePattern(trimmed)) continue;
+      result[key] = trimmed;
+      count++;
     }
   }
 
@@ -105,7 +107,9 @@ function isValidEmailDomain(value: string): boolean {
 }
 
 export function containsSensitivePattern(value: string): boolean {
-  if (EMAIL_PATTERN.test(value)) return true;
+  // EMAIL_PATTERN backtracks quadratically on long '@'-less strings; the
+  // includes() guard keeps it linear for the common case.
+  if (value.includes('@') && EMAIL_PATTERN.test(value)) return true;
   if (PHONE_PATTERN.test(value)) return true;
   if (CREDIT_CARD_PATTERN.test(value)) return true;
   return false;

@@ -40,6 +40,30 @@ const { sessionId } = getSession();
 
 The package provides ESM, CommonJS, and TypeScript declarations.
 
+### Identify the visitor
+
+Tell Shield which of your users a session belongs to. The SDK hashes the
+values in the browser with SHA-256 and sends only the hashes, the email
+domain, and the plan; the raw user ID and email never leave the page.
+
+```ts
+init({
+  siteKey: 'pub_xxxxxxxxx',
+  identify: {
+    userId: currentUser.id,      // sent as user_id_hash
+    email: currentUser.email,    // sent as email_hash + email_domain
+    plan: currentUser.plan,      // sent as plan
+    salt: 'optional-secret',     // mixed into both hashes: SHA-256(salt + ':' + value)
+  },
+});
+
+// Or later, e.g. after a login. Pass null on logout.
+identify({ userId: user.id, email: user.email });
+```
+
+To find the account behind a hash shown in the dashboard, compute the same
+SHA-256 (with the same salt) of the user ID in your own system.
+
 ## Install from the CDN
 
 ```html
@@ -50,6 +74,12 @@ The package provides ESM, CommonJS, and TypeScript declarations.
   data-privacy-mode="balanced">
 </script>
 ```
+
+To identify the visitor from a script tag, add `data-user-id`,
+`data-user-email`, `data-plan` and optionally `data-hash-salt`. Render them
+server-side for the logged-in user; the SDK hashes them before sending. Inside
+a Google Tag Manager Custom HTML tag, call `FindIP.init({ siteKey, identify })`
+with your GTM variables instead, because GTM strips `data-*` attributes.
 
 The CDN build exposes `window.FindIP`:
 

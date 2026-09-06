@@ -1,5 +1,7 @@
 declare const __SDK_VERSION__: string;
 
+import type { IdentifyOptions } from './identify';
+
 export const SDK_NAME = 'findip-shield-js';
 export const SDK_VERSION = typeof __SDK_VERSION__ !== 'undefined' ? __SDK_VERSION__ : '1.0.0';
 
@@ -24,6 +26,8 @@ export interface FindIPConfig {
   consentRequired?: boolean;
   noConsentMode?: NoConsentMode;
   integration?: string;
+  /** Who the visitor is; hashed in the browser, see IdentifyOptions. */
+  identify?: IdentifyOptions | null;
   endpoint?: string;
   debug?: boolean;
   maxPayloadBytes?: number;
@@ -40,6 +44,7 @@ export interface ResolvedConfig extends Required<
     | 'autoDetectForms'
     | 'pushToDataLayer'
     | 'integration'
+    | 'identify'
   >
 > {
   siteKey: string;
@@ -49,6 +54,7 @@ export interface ResolvedConfig extends Required<
   pushToDataLayer: boolean;
   // null = infer from the page environment (gtm vs javascript) per event
   integration: Integration | null;
+  identify: IdentifyOptions | null;
 }
 
 export const DEFAULT_ENDPOINT = 'https://shield.findip.net/v1/shield/track';
@@ -119,6 +125,7 @@ export function resolveConfig(partial: FindIPConfig): ResolvedConfig {
     consentRequired: partial.consentRequired ?? false,
     noConsentMode: partial.noConsentMode ?? 'strict',
     integration: normalizeIntegration(partial.integration),
+    identify: partial.identify ?? null,
     endpoint: partial.endpoint ?? DEFAULT_ENDPOINT,
     debug: partial.debug ?? false,
     maxPayloadBytes: partial.maxPayloadBytes ?? DEFAULT_MAX_PAYLOAD_BYTES,
@@ -161,6 +168,21 @@ export function parseScriptTagConfig(): Partial<FindIPConfig> {
   if (dataset.integration) config.integration = dataset.integration;
   if (dataset.debug !== undefined) config.debug = dataset.debug === 'true';
   if (dataset.endpoint) config.endpoint = dataset.endpoint;
+
+  // data-user-id / data-user-email / data-plan / data-hash-salt
+  if (
+    dataset.userId !== undefined ||
+    dataset.userEmail !== undefined ||
+    dataset.plan !== undefined ||
+    dataset.hashSalt !== undefined
+  ) {
+    config.identify = {
+      userId: dataset.userId,
+      email: dataset.userEmail,
+      plan: dataset.plan,
+      salt: dataset.hashSalt,
+    };
+  }
 
   return config;
 }

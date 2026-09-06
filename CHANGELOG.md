@@ -12,6 +12,11 @@ All notable changes to this package are documented here.
   `email_domain` and `plan` to every event; the raw values never leave the page.
   Automatic events wait for hashing to finish, so the first `session_start`
   already carries the identity.
+- Fix quadratic backtracking in the customer-context sanitizer: the email
+  pattern is only evaluated for values containing `@`, and values are capped
+  to 256 characters before pattern matching. Oversized `custom` strings no
+  longer cost seconds of CPU (and the payload-size test no longer times out on
+  slow CI runners).
 
 ## 1.0.8 - 2026-08-23
 

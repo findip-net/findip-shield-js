@@ -15,6 +15,7 @@ import { state } from '../core/state';
 import { attachFormListeners, inferFormEvent, observeFormViews, scanFormMetadata } from '../collectors/forms';
 import { inferPageEvent } from '../collectors/url-inference';
 import { isGtmPresent } from '../collectors/gtm';
+import { hasIdentity, resolveIdentity, type IdentifyOptions } from '../core/identify';
 import { trackEvent } from './track';
 import { debug } from '../utils/logger';
 
@@ -30,6 +31,8 @@ export function init(options: FindIPConfig): void {
   state.initialized = true;
 
   applyConsent(state.consent.details ?? state.consent.granted);
+
+  if (hasIdentity(config.identify)) identify(config.identify);
 
   initializeSessionIds(config);
   attachUnloadHandler();
@@ -51,6 +54,23 @@ export function init(options: FindIPConfig): void {
   if (config.autoDetectForms) {
     setupFormDetection();
   }
+}
+
+/**
+ * Tell Shield who the visitor is. Values are hashed in the browser; only the
+ * hashes, the email domain and the plan are attached to subsequent events.
+ * Call it from init({ identify }) or later, e.g. after a login. Pass null to
+ * forget the identity (e.g. on logout).
+ */
+export function identify(options: IdentifyOptions | null): void {
+  const previous = state.identityReady;
+  state.identityReady = previous
+    .catch(() => undefined)
+    .then(() => resolveIdentity(options))
+    .then((identity) => {
+      state.identity = identity;
+      debug('Identity set', Object.keys(identity));
+    });
 }
 
 async function sendAutoPageEvents(): Promise<void> {

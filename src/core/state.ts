@@ -1,4 +1,5 @@
 import type { ConsentState, PrivacyMode, ResolvedConfig } from './config';
+import type { IdentityContext } from './identify';
 import type { TrackResponse } from './transport';
 
 export interface SessionInfo {
@@ -31,6 +32,10 @@ export interface SDKState {
   // distinguishes a dataLayer the SDK created (for pushRiskResult) from one
   // the page already had — only the latter indicates a GTM installation
   dataLayerCreatedBySdk: boolean;
+  // hashed identity merged into every event's customer_context
+  identity: IdentityContext;
+  // resolves once the current identify() call has finished hashing
+  identityReady: Promise<void>;
 }
 
 export const state: SDKState = {
@@ -51,6 +56,8 @@ export const state: SDKState = {
   formListenersAttached: false,
   pageViewSent: false,
   dataLayerCreatedBySdk: false,
+  identity: {},
+  identityReady: Promise.resolve(),
 };
 
 export function resetState(): void {
@@ -65,4 +72,6 @@ export function resetState(): void {
   state.formListenersAttached = false;
   state.pageViewSent = false;
   state.dataLayerCreatedBySdk = false;
+  state.identity = {};
+  state.identityReady = Promise.resolve();
 }

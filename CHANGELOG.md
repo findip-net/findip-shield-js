@@ -2,6 +2,17 @@
 
 All notable changes to this package are documented here.
 
+## 1.0.9 - 2026-09-06
+
+- Add visitor identification: `init({ identify: { userId, email, plan, salt } })`,
+  the matching `data-user-id`, `data-user-email`, `data-plan` and
+  `data-hash-salt` script-tag attributes, and `FindIP.identify()` for apps that
+  log the user in after load. The SDK hashes the user ID and email with SHA-256
+  in the browser (WebCrypto) and attaches only `user_id_hash`, `email_hash`,
+  `email_domain` and `plan` to every event; the raw values never leave the page.
+  Automatic events wait for hashing to finish, so the first `session_start`
+  already carries the identity.
+
 ## 1.0.8 - 2026-08-23
 
 - Fix integration attribution: the SDK no longer reports `gtm` for plain

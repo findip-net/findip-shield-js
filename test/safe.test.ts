@@ -22,6 +22,23 @@ describe('safe context sanitization', () => {
     expect((result.custom as Record<string, unknown>).note).toBeUndefined();
   });
 
+  it('passes identity ciphertext through and blocks anything else in the _enc fields', () => {
+    const ciphertext = `fk1.ik_0123456789abcdef.${'A'.repeat(342)}==`;
+    const result = sanitizeCustomerContext({
+      email_enc: ciphertext,
+      user_id_enc: 'jane@example.com',
+    });
+    expect(result.email_enc).toBe(ciphertext);
+    expect(result.user_id_enc).toBeNull();
+    expect(
+      sanitizeCustomerContext({ email_enc: `fk1.bad.${'A'.repeat(344)}` }).email_enc,
+    ).toBeNull();
+    expect(
+      sanitizeCustomerContext({ email_enc: `fk1.ik_0123456789abcdef.${'A'.repeat(800)}` })
+        .email_enc,
+    ).toBeNull();
+  });
+
   it('blocks phone numbers in custom fields', () => {
     const result = sanitizeCustomerContext({
       custom: { phone: '+1 555 123 4567' },

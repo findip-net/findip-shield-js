@@ -42,16 +42,19 @@ The package provides ESM, CommonJS, and TypeScript declarations.
 
 ### Identify the visitor
 
-Tell Shield which of your users a session belongs to. The SDK hashes the
-values in the browser with SHA-256 and sends only the hashes, the email
-domain, and the plan; the raw user ID and email never leave the page.
+Tell Shield which of your users a session belongs to. The plain user ID and
+email never leave the page: the SDK hashes them in the browser with SHA-256,
+and encrypts them with your site's identity public key (RSA-OAEP, fetched
+from Shield once per page) so that only the Shield dashboard can show them
+next to each event. Shield's ingest and storage only ever see the hashes,
+the email domain, the plan, and the ciphertext.
 
 ```ts
 init({
   siteKey: 'pub_xxxxxxxxx',
   identify: {
-    userId: currentUser.id,      // sent as user_id_hash
-    email: currentUser.email,    // sent as email_hash + email_domain
+    userId: currentUser.id,      // sent as user_id_hash + user_id_enc
+    email: currentUser.email,    // sent as email_hash + email_domain + email_enc
     plan: currentUser.plan,      // sent as plan
     salt: 'optional-secret',     // mixed into both hashes: SHA-256(salt + ':' + value)
   },
@@ -61,8 +64,11 @@ init({
 identify({ userId: user.id, email: user.email });
 ```
 
-To find the account behind a hash shown in the dashboard, compute the same
-SHA-256 (with the same salt) of the user ID in your own system.
+The dashboard shows the email and user ID on every identified event and
+session. Switch "Show visitor emails and user IDs" off in the site's settings
+to keep identities hash-only; the SDK then sends no ciphertext at all. Pass
+`identityKey` (or `data-identity-key`) with the key shown in the dashboard to
+skip the per-page fetch.
 
 ## Install from the CDN
 

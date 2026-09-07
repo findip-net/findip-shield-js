@@ -1,5 +1,5 @@
 import type { ConsentState, PrivacyMode, ResolvedConfig } from './config';
-import type { IdentityContext } from './identify';
+import type { IdentifyOptions, IdentityContext } from './identify';
 import type { TrackResponse } from './transport';
 
 export interface SessionInfo {
@@ -36,6 +36,14 @@ export interface SDKState {
   identity: IdentityContext;
   // resolves once the current identify() call has finished hashing
   identityReady: Promise<void>;
+  // what identify() was last given — kept so the encrypted fields can be
+  // added once the site's identity key is known (consent-gated, see
+  // ensureIdentityEncrypted); the page already holds these values
+  identityOptions: IdentifyOptions | null;
+  // one encryption attempt per identify() call
+  identityEncryption: Promise<void> | null;
+  // the site's identity public key, fetched once per page (null = none)
+  identityKeyPromise: Promise<string | null> | null;
 }
 
 export const state: SDKState = {
@@ -58,6 +66,9 @@ export const state: SDKState = {
   dataLayerCreatedBySdk: false,
   identity: {},
   identityReady: Promise.resolve(),
+  identityOptions: null,
+  identityEncryption: null,
+  identityKeyPromise: null,
 };
 
 export function resetState(): void {
@@ -74,4 +85,7 @@ export function resetState(): void {
   state.dataLayerCreatedBySdk = false;
   state.identity = {};
   state.identityReady = Promise.resolve();
+  state.identityOptions = null;
+  state.identityEncryption = null;
+  state.identityKeyPromise = null;
 }

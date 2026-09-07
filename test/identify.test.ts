@@ -5,6 +5,7 @@ import { track, trackEvent } from '../src/api/track';
 import { identityKeyEndpoint, parseScriptTagConfig } from '../src/core/config';
 import {
   encryptIdentityValue,
+  hasIdentity,
   importIdentityKey,
   isIdentityCiphertext,
   resolveIdentity,
@@ -354,5 +355,51 @@ describe('identity encryption', () => {
     script.dataset.identityKey = `fk1.${KEY_ID}.QUJD`;
     document.head.appendChild(script);
     expect(parseScriptTagConfig().identityKey).toBe(`fk1.${KEY_ID}.QUJD`);
+  });
+});
+
+describe('identify custom facts', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    resetState();
+    ensureWebCrypto();
+    document.head.innerHTML = '';
+    document.body.innerHTML = '';
+  });
+
+  it('attaches custom facts to every event and drops GTM placeholders', async () => {
+    const fetchMock = fetchServing(null);
+    vi.stubGlobal('fetch', fetchMock);
+    init({
+      siteKey: 'pub_test',
+      autoTrack: false,
+      autoDetectForms: false,
+      identify: {
+        email: 'jane@example.com',
+        custom: { total_credits: '1250', signup_channel: 'google', unset: 'undefined', gone: 'null' },
+      },
+    });
+    await trackEvent('page_view', { source: 'auto' });
+    await track('checkout_started', { custom: { cart_items: 3 }, currency: 'USD' });
+
+    const [auto, manual] = sentContexts(fetchMock);
+    expect(auto.custom).toEqual({ total_credits: 1250, signup_channel: 'google' });
+    // per-event custom merges with (and wins over) the identify() custom
+    expect(manual.custom).toEqual({ total_credits: 1250, signup_channel: 'google', cart_items: 3 });
+    expect(manual.currency).toBe('USD');
+  });
+
+  it('still sanitizes custom facts like track() does', async () => {
+    const identity = await resolveIdentity({
+      custom: { password: 'x', note: 'mail me at a@b.co', ok: true, n: 2 },
+    });
+    // resolveIdentity keeps the object; sanitizeCustomerContext (every payload) applies the rules
+    const { sanitizeCustomerContext } = await import('../src/utils/safe');
+    expect(sanitizeCustomerContext(identity).custom).toEqual({ ok: true, n: 2 });
+  });
+
+  it('counts custom facts alone as an identity', () => {
+    expect(hasIdentity({ custom: { total_credits: 5 } })).toBe(true);
+    expect(hasIdentity({ custom: { total_credits: 'undefined' } })).toBe(false);
   });
 });

@@ -3,16 +3,12 @@ import { isTrackingAllowed } from '../core/consent';
 import { buildPayload, enforcePayloadSize, type EventMeta } from '../core/payload';
 import { getSession, refreshSessionId } from '../core/session-ids';
 import { state } from '../core/state';
-import {
-  getRetryDelay,
-  sendPayload,
-  shouldRetry,
-  type TrackResponse,
-} from '../core/transport';
+import { getRetryDelay, sendPayload, shouldRetry, type TrackResponse } from '../core/transport';
 import { pushRiskResult, readDataLayerContext } from '../collectors/gtm';
 import type { FormMetadata } from '../collectors/forms';
 import { ensureIdentityEncrypted } from '../core/identify';
 import { sanitizeCustomerContext } from '../utils/safe';
+import { isPlainObject } from '../utils/object';
 import { debug } from '../utils/logger';
 
 export interface TrackOptions {
@@ -75,8 +71,17 @@ export async function track(
   await state.identityReady;
   await ensureIdentityEncrypted();
 
-  // explicit per-event context beats the identity set via identify()
-  const sanitizedContext = sanitizeCustomerContext({ ...state.identity, ...context });
+  // explicit per-event context beats the identity set via identify(); the
+  // custom objects merge key by key so identify({ custom }) survives a
+  // track() call that adds its own custom facts
+  const merged: Record<string, unknown> = { ...state.identity, ...context };
+  if (isPlainObject(state.identity.custom) || isPlainObject(context.custom)) {
+    merged.custom = {
+      ...(isPlainObject(state.identity.custom) ? state.identity.custom : {}),
+      ...(isPlainObject(context.custom) ? context.custom : {}),
+    };
+  }
+  const sanitizedContext = sanitizeCustomerContext(merged);
   const event: EventMeta = {
     name: eventName,
     source: 'manual',
@@ -114,11 +119,7 @@ async function processQueue(): Promise<void> {
   try {
     while (state.queue.length > 0) {
       const item = state.queue[0];
-      const response = await sendPayload(
-        endpoint,
-        item.payload,
-        item.useBeacon,
-      );
+      const response = await sendPayload(endpoint, item.payload, item.useBeacon);
 
       if (response !== null || item.useBeacon) {
         state.queue.shift();

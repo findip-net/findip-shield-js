@@ -2,6 +2,20 @@
 
 All notable changes to this package are documented here.
 
+## 1.1.0 - 2026-09-07
+
+- Identified visitors can now be shown by email and user ID in the Shield
+  dashboard. When `identify` carries an email or user ID, the SDK fetches the
+  site's identity public key once per page (`GET /v1/shield/identity-key`,
+  only after tracking is allowed), encrypts the values in the browser with
+  WebCrypto RSA-OAEP/SHA-256, and attaches `email_enc` / `user_id_enc` next to
+  the existing `email_hash` / `user_id_hash` / `email_domain` / `plan`. The
+  plain values still never leave the page; only the Shield dashboard, holding
+  the site's private key, can open the ciphertext. Sites without a key (or
+  with identity reveal switched off) keep working exactly as in 1.0.9.
+- New `identityKey` init option and `data-identity-key` attribute to supply
+  the key directly and skip the fetch.
+
 ## 1.0.9 - 2026-09-06
 
 - Add visitor identification: `init({ identify: { userId, email, plan, salt } })`,

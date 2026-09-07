@@ -26,8 +26,14 @@ export interface FindIPConfig {
   consentRequired?: boolean;
   noConsentMode?: NoConsentMode;
   integration?: string;
-  /** Who the visitor is; hashed in the browser, see IdentifyOptions. */
+  /** Who the visitor is; hashed and encrypted in the browser, see IdentifyOptions. */
   identify?: IdentifyOptions | null;
+  /**
+   * The site's identity public key ("fk1.<key id>.<base64 SPKI>") used to
+   * encrypt the email and user ID for the dashboard. Normally omitted: the SDK
+   * fetches it from Shield once per page when identify() carries values.
+   */
+  identityKey?: string | null;
   endpoint?: string;
   debug?: boolean;
   maxPayloadBytes?: number;
@@ -45,6 +51,7 @@ export interface ResolvedConfig extends Required<
     | 'pushToDataLayer'
     | 'integration'
     | 'identify'
+    | 'identityKey'
   >
 > {
   siteKey: string;
@@ -55,9 +62,16 @@ export interface ResolvedConfig extends Required<
   // null = infer from the page environment (gtm vs javascript) per event
   integration: Integration | null;
   identify: IdentifyOptions | null;
+  // null = fetch from the identity-key endpoint next to `endpoint`
+  identityKey: string | null;
 }
 
 export const DEFAULT_ENDPOINT = 'https://shield.findip.net/v1/shield/track';
+
+/** The identity-key endpoint lives next to the track endpoint. */
+export function identityKeyEndpoint(trackEndpoint: string): string {
+  return trackEndpoint.replace(/\/track\/?$/, '/identity-key');
+}
 export const DEFAULT_MAX_PAYLOAD_BYTES = 32_768;
 export const SESSION_COOKIE_NAME = '_fip_sid';
 export const SESSION_STARTED_COOKIE_NAME = '_fip_ss';
@@ -102,6 +116,10 @@ export const ALLOWED_CONTEXT_FIELDS = new Set([
   'user_id_hash',
   'email_hash',
   'email_domain',
+  // RSA-OAEP ciphertext under the site's identity key — only the Shield
+  // dashboard can open it; see core/identify.ts
+  'email_enc',
+  'user_id_enc',
   'account_age_days',
   'plan',
   'transaction_amount',
@@ -126,6 +144,7 @@ export function resolveConfig(partial: FindIPConfig): ResolvedConfig {
     noConsentMode: partial.noConsentMode ?? 'strict',
     integration: normalizeIntegration(partial.integration),
     identify: partial.identify ?? null,
+    identityKey: partial.identityKey ?? null,
     endpoint: partial.endpoint ?? DEFAULT_ENDPOINT,
     debug: partial.debug ?? false,
     maxPayloadBytes: partial.maxPayloadBytes ?? DEFAULT_MAX_PAYLOAD_BYTES,
@@ -168,6 +187,7 @@ export function parseScriptTagConfig(): Partial<FindIPConfig> {
   if (dataset.integration) config.integration = dataset.integration;
   if (dataset.debug !== undefined) config.debug = dataset.debug === 'true';
   if (dataset.endpoint) config.endpoint = dataset.endpoint;
+  if (dataset.identityKey) config.identityKey = dataset.identityKey;
 
   // data-user-id / data-user-email / data-plan / data-hash-salt
   if (

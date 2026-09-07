@@ -57,13 +57,16 @@ export function init(options: FindIPConfig): void {
 }
 
 /**
- * Tell Shield who the visitor is. Values are hashed in the browser; only the
- * hashes, the email domain and the plan are attached to subsequent events.
- * Call it from init({ identify }) or later, e.g. after a login. Pass null to
- * forget the identity (e.g. on logout).
+ * Tell Shield who the visitor is. The user ID and email are hashed in the
+ * browser (SHA-256) and, once the site's identity key is known, encrypted
+ * with it so the Shield dashboard can show them; the plain values are never
+ * sent. Call it from init({ identify }) or later, e.g. after a login. Pass
+ * null to forget the identity (e.g. on logout).
  */
 export function identify(options: IdentifyOptions | null): void {
   const previous = state.identityReady;
+  state.identityOptions = options;
+  state.identityEncryption = null;
   state.identityReady = previous
     .catch(() => undefined)
     .then(() => resolveIdentity(options))

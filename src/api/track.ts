@@ -11,6 +11,7 @@ import {
 } from '../core/transport';
 import { pushRiskResult, readDataLayerContext } from '../collectors/gtm';
 import type { FormMetadata } from '../collectors/forms';
+import { ensureIdentityEncrypted } from '../core/identify';
 import { sanitizeCustomerContext } from '../utils/safe';
 import { debug } from '../utils/logger';
 
@@ -39,6 +40,7 @@ export async function trackEvent(
 
   refreshSessionId(state.config);
   await state.identityReady;
+  await ensureIdentityEncrypted();
 
   const event: EventMeta = {
     name: eventName,
@@ -71,6 +73,7 @@ export async function track(
 
   refreshSessionId(state.config);
   await state.identityReady;
+  await ensureIdentityEncrypted();
 
   // explicit per-event context beats the identity set via identify()
   const sanitizedContext = sanitizeCustomerContext({ ...state.identity, ...context });

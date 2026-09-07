@@ -1,4 +1,5 @@
 import { ALLOWED_CONTEXT_FIELDS } from '../core/config';
+import { isIdentityCiphertext } from '../core/identify';
 import { isPlainObject } from './object';
 
 const EMAIL_PATTERN = /[^\s@]+@[^\s@]+\.[^\s@]+/;
@@ -12,6 +13,8 @@ export function sanitizeCustomerContext(
     user_id_hash: null,
     email_hash: null,
     email_domain: null,
+    email_enc: null,
+    user_id_enc: null,
     account_age_days: null,
     plan: null,
     transaction_amount: null,
@@ -50,6 +53,10 @@ function sanitizeFieldValue(key: string, value: unknown): unknown {
 
   const trimmed = value.trim();
   if (!trimmed) return undefined;
+
+  if (key.endsWith('_enc')) {
+    return isIdentityCiphertext(trimmed) ? trimmed : undefined;
+  }
 
   if (key.endsWith('_hash')) {
     return isLikelyHash(trimmed) ? trimmed : undefined;

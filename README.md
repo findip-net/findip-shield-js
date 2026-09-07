@@ -57,6 +57,10 @@ init({
     email: currentUser.email,    // sent as email_hash + email_domain + email_enc
     plan: currentUser.plan,      // sent as plan
     salt: 'optional-secret',     // mixed into both hashes: SHA-256(salt + ':' + value)
+    custom: {                    // account facts on every event (no PII)
+      account_tier: currentUser.tier,
+      signup_channel: 'google',
+    },
   },
 });
 

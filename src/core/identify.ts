@@ -22,6 +22,13 @@ export interface IdentifyOptions {
    * resolving a hash from the dashboard.
    */
   salt?: string | null;
+  /**
+   * Extra account facts to attach to every event (e.g. account tier, seat
+   * count, signup channel). Same rules as the `custom` object of track(): up to 20
+   * keys, string (≤ 256 chars) / number / boolean values, sensitive-looking
+   * keys and values are dropped. Sent as given — never put PII here.
+   */
+  custom?: Record<string, unknown> | null;
 }
 
 export interface IdentityContext {
@@ -32,6 +39,7 @@ export interface IdentityContext {
   /** RSA-OAEP ciphertext, "fk1.<key id>.<base64>" — dashboard-only. */
   email_enc?: string;
   user_id_enc?: string;
+  custom?: Record<string, unknown>;
 }
 
 // Wire format shared with the API (api/src/services/identityCiphertext.ts):
@@ -70,9 +78,29 @@ export async function sha256Hex(text: string): Promise<string | null> {
   }
 }
 
+function cleanCustom(raw: unknown): Record<string, unknown> | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    // GTM renders unset {{variables}} as these literals inside Custom HTML.
+    if (typeof value === 'string' && !clean(value)) continue;
+    if (value === undefined || value === null) continue;
+    // Numeric strings from GTM variables become numbers so the dashboard can
+    // treat them as such; anything else is left for the sanitizer.
+    out[key] =
+      typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value.trim()) ? Number(value) : value;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 export function hasIdentity(options: IdentifyOptions | null | undefined): boolean {
   if (!options) return false;
-  return Boolean(clean(options.userId) || clean(options.email) || clean(options.plan));
+  return Boolean(
+    clean(options.userId) ||
+    clean(options.email) ||
+    clean(options.plan) ||
+    cleanCustom(options.custom),
+  );
 }
 
 /** True when identify() carried a value the dashboard could reveal. */
@@ -168,6 +196,10 @@ export async function resolveIdentity(
 
   if (plan) context.plan = plan;
   if (email) context.email_domain = email.slice(email.lastIndexOf('@') + 1);
+  // Sanitized again (key names, patterns, limits) by sanitizeCustomerContext
+  // on every outgoing payload.
+  const custom = cleanCustom(options.custom);
+  if (custom) context.custom = custom;
 
   if (userId) {
     const hash = await sha256Hex(prefix + userId);

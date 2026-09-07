@@ -6,9 +6,7 @@ const EMAIL_PATTERN = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PHONE_PATTERN = /^[+]?[\d\s().-]{7,}$/;
 const CREDIT_CARD_PATTERN = /\b(?:\d[ -]*?){13,19}\b/;
 
-export function sanitizeCustomerContext(
-  context: Record<string, unknown>,
-): Record<string, unknown> {
+export function sanitizeCustomerContext(context: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {
     user_id_hash: null,
     email_hash: null,
@@ -85,6 +83,9 @@ function sanitizeCustomObject(obj: Record<string, unknown>): Record<string, unkn
   for (const [key, value] of Object.entries(obj)) {
     if (count >= 20) break;
     if (typeof key !== 'string' || key.length > 64) continue;
+    // Mirrors the API's normalizeCustomObject: password/card/ssn/... keys
+    // never leave the page, whatever their value.
+    if (isSensitiveFieldName(key)) continue;
 
     if (typeof value === 'boolean' || typeof value === 'number') {
       result[key] = value;
@@ -127,7 +128,8 @@ export function isSensitiveFieldName(name: string): boolean {
   return (
     lower.includes('password') ||
     lower.includes('passwd') ||
-    lower.includes('credit') ||
+    // 'card' already covers credit_card / creditCard; a bare 'credit' rule
+    // would also drop legitimate account facts such as total_credits.
     lower.includes('card') ||
     lower.includes('cvv') ||
     lower.includes('cvc') ||

@@ -4,18 +4,17 @@ All notable changes to this package are documented here.
 
 ## 1.1.1 - 2026-09-07
 
-- `identify({ custom: { … } })`: attach account facts such as remaining
-  credits or the signup channel to every event, with the same rules and
-  sanitizer as the `custom` object of `track()` (up to 20 keys, string /
-  number / boolean values, sensitive keys and values dropped). Per-event
-  `custom` passed to `track()` merges on top. Numeric strings (as GTM
-  variables render them) become numbers; `undefined` / `null` placeholders
-  are ignored.
+- `identify({ custom: { … } })`: attach account facts (for example an
+  account tier, a seat count, or the signup channel) to every event, with
+  the same rules and sanitizer as the `custom` object of `track()` (up to 20
+  keys, string / number / boolean values, sensitive keys and values dropped).
+  Per-event `custom` passed to `track()` merges on top. Numeric strings (as
+  GTM variables render them) become numbers; `undefined` / `null`
+  placeholders are ignored.
 - The custom-object sanitizer now also drops sensitive key names in the
   browser (password, card, cvv, ssn, secret, …), matching the server, and no
-  longer treats every key containing "credit" as a card field — `card`
-  still covers credit_card, while account facts such as `total_credits`
-  pass through.
+  longer drops every key that merely contains the word "credit" — `card`
+  still covers credit_card and creditCard.
 
 ## 1.1.0 - 2026-09-07
 

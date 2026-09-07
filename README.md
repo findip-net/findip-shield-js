@@ -58,7 +58,7 @@ init({
     plan: currentUser.plan,      // sent as plan
     salt: 'optional-secret',     // mixed into both hashes: SHA-256(salt + ':' + value)
     custom: {                    // account facts on every event (no PII)
-      total_credits: currentUser.credits,
+      account_tier: currentUser.tier,
       signup_channel: 'google',
     },
   },

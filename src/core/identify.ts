@@ -23,8 +23,8 @@ export interface IdentifyOptions {
    */
   salt?: string | null;
   /**
-   * Extra account facts to attach to every event (e.g. remaining credits,
-   * signup channel). Same rules as the `custom` object of track(): up to 20
+   * Extra account facts to attach to every event (e.g. account tier, seat
+   * count, signup channel). Same rules as the `custom` object of track(): up to 20
    * keys, string (≤ 256 chars) / number / boolean values, sensitive-looking
    * keys and values are dropped. Sent as given — never put PII here.
    */

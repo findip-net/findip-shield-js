@@ -40,6 +40,8 @@ export interface RuleInPageOverride {
   action?: EnforcementAction | 'none';
   slow_down_seconds?: number;
   message?: string;
+  challenge_message?: string;
+  slow_down_message?: string;
   redirect_url?: string;
 }
 
@@ -55,6 +57,10 @@ export interface EnforcementConfig {
   /** Per category: only these forms (absent/empty = every form of the category). */
   form_filters?: Partial<Record<EnforcementScope, FormFilter[]>>;
   message: string;
+  /** Shown above the Turnstile widget (absent = built-in text). */
+  challenge_message?: string;
+  /** Countdown text; "{seconds}" is replaced (absent = built-in text). */
+  slow_down_message?: string;
   redirect_url: string | null;
   slow_down_seconds: number;
   turnstile_site_key: string | null;
@@ -70,6 +76,8 @@ const TURNSTILE_SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?
 const NOTICE_CLASS = 'findip-shield-notice';
 const DEFAULT_MESSAGE =
   'We could not accept this submission from your current connection. Please try again later or contact support.';
+const DEFAULT_CHALLENGE_MESSAGE = 'Please complete the quick verification below to continue.';
+const DEFAULT_SLOW_DOWN_MESSAGE = 'Please wait {seconds} seconds before submitting.';
 
 const SCOPE_BY_EVENT: Record<string, EnforcementScope> = {
   signup_attempt: 'signup',
@@ -168,6 +176,12 @@ function sanitizeOverride(raw: unknown): RuleInPageOverride | null {
     out.slow_down_seconds = r.slow_down_seconds;
   }
   if (typeof r.message === 'string' && r.message) out.message = r.message;
+  if (typeof r.challenge_message === 'string' && r.challenge_message) {
+    out.challenge_message = r.challenge_message;
+  }
+  if (typeof r.slow_down_message === 'string' && r.slow_down_message) {
+    out.slow_down_message = r.slow_down_message;
+  }
   if (typeof r.redirect_url === 'string' && r.redirect_url) out.redirect_url = r.redirect_url;
   return Object.keys(out).length > 0 ? out : null;
 }
@@ -309,6 +323,10 @@ function onSubmit(event: Event): void {
   // A custom rule's in-page overrides beat the site defaults.
   const override = state.lastRule?.inPage ?? null;
   const message = override?.message || config.message || DEFAULT_MESSAGE;
+  const challengeMessage =
+    override?.challenge_message || config.challenge_message || DEFAULT_CHALLENGE_MESSAGE;
+  const slowMessage =
+    override?.slow_down_message || config.slow_down_message || DEFAULT_SLOW_DOWN_MESSAGE;
   const redirectUrl = override?.redirect_url ?? config.redirect_url;
   const slowSeconds = override?.slow_down_seconds ?? config.slow_down_seconds;
 
@@ -333,10 +351,10 @@ function onSubmit(event: Event): void {
       }
       return;
     case 'slow':
-      slowDown(form, slowSeconds, () => report('delayed'));
+      slowDown(form, slowSeconds, slowMessage, () => report('delayed'));
       return;
     case 'challenge':
-      challenge(form, config, slowSeconds, report);
+      challenge(form, config, slowSeconds, slowMessage, challengeMessage, report);
       return;
   }
 }
@@ -348,16 +366,21 @@ function redirect(url: string, beforeLeave: (() => void) | null): void {
   navigation.assign(url);
 }
 
-function slowDown(form: HTMLFormElement, seconds: number, onDelayed: () => void): void {
+function slowDown(
+  form: HTMLFormElement,
+  seconds: number,
+  template: string,
+  onDelayed: () => void,
+): void {
   pending.add(form);
   const total = Math.max(1, Math.round(seconds));
   let remaining = total;
-  const notice = showNotice(form, countdownText(remaining));
+  const notice = showNotice(form, countdownText(template, remaining));
   onDelayed();
   const timer = setInterval(() => {
     remaining -= 1;
     if (remaining > 0) {
-      notice.textContent = countdownText(remaining);
+      notice.textContent = countdownText(template, remaining);
       return;
     }
     clearInterval(timer);
@@ -367,23 +390,25 @@ function slowDown(form: HTMLFormElement, seconds: number, onDelayed: () => void)
   }, 1000);
 }
 
-function countdownText(seconds: number): string {
-  return `Please wait ${seconds} second${seconds === 1 ? '' : 's'} before submitting.`;
+function countdownText(template: string, seconds: number): string {
+  return template.replace(/\{seconds\}/g, String(seconds));
 }
 
 function challenge(
   form: HTMLFormElement,
   config: EnforcementConfig,
   slowSeconds: number,
+  slowMessage: string,
+  challengeMessage: string,
   report: (outcome: EnforcementOutcome) => void,
 ): void {
   const siteKey = config.turnstile_site_key;
   if (!siteKey) {
-    slowDown(form, slowSeconds, () => report('delayed'));
+    slowDown(form, slowSeconds, slowMessage, () => report('delayed'));
     return;
   }
   pending.add(form);
-  const notice = showNotice(form, 'Please complete the quick verification below to continue.');
+  const notice = showNotice(form, challengeMessage);
   const container = document.createElement('div');
   container.className = `${NOTICE_CLASS}-widget`;
   notice.appendChild(container);

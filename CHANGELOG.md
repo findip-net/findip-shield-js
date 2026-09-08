@@ -2,6 +2,13 @@
 
 All notable changes to this package are documented here.
 
+## 1.5.0 - 2026-09-08
+
+- The challenge text (above the Turnstile widget) and the slow-down
+  countdown text are configurable per site in the dashboard and per custom
+  rule; `{seconds}` in the slow-down text is replaced by the remaining
+  seconds. Built-in texts remain the default.
+
 ## 1.4.0 - 2026-09-08
 
 - In-page enforcement honours the dashboard's two sub-switches: Shield's

@@ -2,6 +2,16 @@
 
 All notable changes to this package are documented here.
 
+## 1.4.0 - 2026-09-08
+
+- In-page enforcement honours the dashboard's two sub-switches: Shield's
+  score-based verdicts and custom-rule verdicts can each be enforced in the
+  page independently (`apply` in the setting; verdicts decided by a rule are
+  marked as such in the track response).
+- A custom rule may override the site's in-page action, slow-down delay,
+  message and redirect URL; the overrides arrive only with the responses
+  that rule decided, so site defaults stay in force otherwise.
+
 ## 1.3.0 - 2026-09-08
 
 - Form events carry a fingerprint of the form — `form_id`, `form_name` and

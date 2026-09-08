@@ -8,6 +8,16 @@ export interface TrackResponse {
     level?: string;
     recommendation?: string;
     reasons?: string[];
+    /** Set when a custom rule decided; may carry in-page overrides. */
+    rule?: {
+      name?: string;
+      in_page?: {
+        action?: string;
+        slow_down_seconds?: number;
+        message?: string;
+        redirect_url?: string;
+      };
+    };
   };
   /** Present when the site has in-page enforcement switched on. */
   enforcement?: unknown;

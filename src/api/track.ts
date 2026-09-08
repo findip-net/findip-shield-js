@@ -7,6 +7,7 @@ import { getRetryDelay, sendPayload, shouldRetry, type TrackResponse } from '../
 import { pushRiskResult, readDataLayerContext } from '../collectors/gtm';
 import type { FormMetadata } from '../collectors/forms';
 import { ensureIdentityEncrypted } from '../core/identify';
+import { applyTrackResponse } from '../core/enforcement';
 import { sanitizeCustomerContext } from '../utils/safe';
 import { isPlainObject } from '../utils/object';
 import { debug } from '../utils/logger';
@@ -18,6 +19,8 @@ export interface TrackOptions {
   detection_method?: string;
   formMeta?: FormMetadata | null;
   useBeacon?: boolean;
+  /** What in-page enforcement did on this submit (core/enforcement.ts). */
+  enforcement?: { action: string; outcome: string } | null;
 }
 
 export async function trackEvent(
@@ -49,7 +52,7 @@ export async function trackEvent(
   // identify() beats whatever the page pushed to the dataLayer
   const autoContext = { ...readDataLayerContext(), ...state.identity };
   const payload = enforcePayloadSize(
-    buildPayload(event, options.formMeta, autoContext),
+    buildPayload(event, options.formMeta, autoContext, options.enforcement ?? null),
     state.config.maxPayloadBytes,
   );
 
@@ -124,7 +127,10 @@ async function processQueue(): Promise<void> {
       if (response !== null || item.useBeacon) {
         state.queue.shift();
         item.resolve(response);
-        if (response) pushRiskResult(response);
+        if (response) {
+          pushRiskResult(response);
+          applyTrackResponse(response);
+        }
       } else {
         item.attempts += 1;
         if (shouldRetry(item.attempts)) {

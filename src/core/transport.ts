@@ -9,6 +9,8 @@ export interface TrackResponse {
     recommendation?: string;
     reasons?: string[];
   };
+  /** Present when the site has in-page enforcement switched on. */
+  enforcement?: unknown;
   ip?: {
     country?: string;
     asn?: number;

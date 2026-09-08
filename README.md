@@ -106,6 +106,19 @@ npm and CDN releases use the same SDK semantic version. The mutable `v1.js`
 alias serves the latest compatible 1.x SDK, while versioned CDN URLs are
 immutable and can be verified with SRI.
 
+## In-page enforcement
+
+Switch **Enforcement** on in the site's Settings in the Shield dashboard and
+the SDK acts on Shield's recommendation for signup, login, checkout, lead and
+password-reset forms: stop the submit with a message, slow it down with a
+countdown, ask for a Cloudflare Turnstile challenge that Shield verifies, or
+redirect blocked visitors. No snippet change is needed; the setting travels
+inside the `/track` responses. This is friction against bots and casual abuse
+that run the page, not a security boundary: confirm sensitive actions on
+your server with the
+[verify endpoint](https://findip.net/docs/shield/server-verification), which
+also reports whether the session passed a challenge.
+
 ## Consent
 
 Shield supports a direct consent API and Google Consent Mode-style storage signals:

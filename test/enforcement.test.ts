@@ -1,0 +1,238 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { init } from '../src/api/init';
+import { trackEvent } from '../src/api/track';
+import {
+  applyTrackResponse,
+  detachEnforcement,
+  navigation,
+  type EnforcementConfig,
+} from '../src/core/enforcement';
+import { resetState, state } from '../src/core/state';
+
+const CONFIG: EnforcementConfig = {
+  actions: { block: 'stop', challenge: 'challenge', monitor: 'slow' },
+  scope: ['signup', 'login', 'checkout', 'lead', 'password_reset'],
+  message: 'Blocked by test.',
+  redirect_url: null,
+  slow_down_seconds: 2,
+  turnstile_site_key: '1x00000000000000000000AA',
+};
+
+type Body = {
+  event: { name: string; source: string };
+  enforcement?: { action: string; outcome: string };
+};
+
+function responses(fetchMock: ReturnType<typeof vi.fn>): Body[] {
+  return fetchMock.mock.calls
+    .filter((call) => String(call[0]).includes('/track'))
+    .map((call) => JSON.parse((call[1] as RequestInit).body as string) as Body);
+}
+
+function fetchWith(recommendation: string, enforcement: EnforcementConfig | null = CONFIG) {
+  return vi.fn().mockImplementation((url: string) => {
+    if (String(url).includes('/challenge')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ passed: true }),
+      } as Response);
+    }
+    if (String(url).includes('/identity-key')) {
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        json: () => Promise.resolve({}),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          request_id: 'req_1',
+          risk: { score: 90, level: 'critical', recommendation },
+          ...(enforcement ? { enforcement } : {}),
+        }),
+    } as Response);
+  });
+}
+
+function signupForm(): HTMLFormElement {
+  document.body.innerHTML = `
+    <form id="f" action="/signup" method="post">
+      <input type="email" name="email" value="a@b.co">
+      <input type="password" name="password" value="x">
+      <button type="submit">Create account</button>
+    </form>`;
+  const form = document.getElementById('f') as HTMLFormElement;
+  // jsdom lacks requestSubmit; emulate it by dispatching a submit event.
+  form.requestSubmit = () => {
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  };
+  return form;
+}
+
+function submit(form: HTMLFormElement): Event {
+  const event = new Event('submit', { bubbles: true, cancelable: true });
+  form.dispatchEvent(event);
+  return event;
+}
+
+async function boot(recommendation: string, enforcement: EnforcementConfig | null = CONFIG) {
+  const fetchMock = fetchWith(recommendation, enforcement);
+  vi.stubGlobal('fetch', fetchMock);
+  // autoDetectForms off: the tracking submit listener would accumulate on
+  // document across tests (init re-attaches it) and reorder ahead of ours.
+  init({ siteKey: 'pub_test', autoTrack: false, autoDetectForms: false });
+  // one page-load event brings the setting + decision
+  await trackEvent('page_view', { source: 'auto' });
+  return fetchMock;
+}
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+  detachEnforcement();
+  resetState();
+  sessionStorage.clear();
+  document.head.innerHTML = '';
+  document.body.innerHTML = '';
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  detachEnforcement();
+});
+
+describe('enforcement setting and decision', () => {
+  it('remembers the setting and the recommendation from track responses', async () => {
+    await boot('challenge');
+    expect(state.enforcement).toEqual(CONFIG);
+    expect(state.lastRecommendation).toBe('challenge');
+  });
+
+  it('does nothing without a setting or on allow', async () => {
+    await boot('block', null);
+    const form = signupForm();
+    expect(submit(form).defaultPrevented).toBe(false);
+
+    await boot('allow');
+    expect(submit(signupForm()).defaultPrevented).toBe(false);
+  });
+
+  it('ignores forms outside the scope', async () => {
+    await boot('block');
+    document.body.innerHTML = `<form id="g"><input name="q"><button type="submit">Search</button></form>`;
+    const form = document.getElementById('g') as HTMLFormElement;
+    expect(submit(form).defaultPrevented).toBe(false);
+  });
+});
+
+describe('stop', () => {
+  it('blocks the submit, shows the message and reports it', async () => {
+    const fetchMock = await boot('block');
+    const form = signupForm();
+    const event = submit(form);
+    expect(event.defaultPrevented).toBe(true);
+    const notice = form.querySelector('.findip-shield-notice');
+    expect(notice?.textContent).toBe('Blocked by test.');
+
+    await vi.waitFor(() => expect(responses(fetchMock).length).toBe(2));
+    const report = responses(fetchMock)[1];
+    expect(report.event).toMatchObject({ name: 'signup_attempt', source: 'enforcement' });
+    expect(report.enforcement).toEqual({ action: 'stop', outcome: 'blocked' });
+  });
+});
+
+describe('slow', () => {
+  it('delays the submit and resubmits once after the countdown', async () => {
+    const fetchMock = await boot('monitor');
+    vi.useFakeTimers();
+    const form = signupForm();
+    const resubmits: boolean[] = [];
+    form.addEventListener('submit', (e) => resubmits.push(e.defaultPrevented));
+
+    expect(submit(form).defaultPrevented).toBe(true);
+    expect(form.querySelector('.findip-shield-notice')?.textContent).toMatch(/wait 2 seconds/);
+    vi.advanceTimersByTime(1000);
+    expect(form.querySelector('.findip-shield-notice')?.textContent).toMatch(
+      /wait 1 second before/,
+    );
+    vi.advanceTimersByTime(1000);
+    // only the re-submit reached the form's own listener (the first was
+    // stopped in the capture phase) and it passed through unprevented
+    expect(resubmits).toEqual([false]);
+    expect(form.querySelector('.findip-shield-notice')).toBeNull();
+    vi.useRealTimers();
+
+    await vi.waitFor(() => expect(responses(fetchMock).length).toBeGreaterThanOrEqual(2));
+    expect(responses(fetchMock)[1].enforcement).toEqual({ action: 'slow', outcome: 'delayed' });
+  });
+});
+
+describe('challenge', () => {
+  it('renders Turnstile, verifies the token with Shield and resubmits', async () => {
+    const fetchMock = await boot('challenge');
+    const render = vi.fn((_el: HTMLElement, opts: { callback: (t: string) => void }) => {
+      setTimeout(() => opts.callback('tok-123'), 0);
+      return 'w1';
+    });
+    vi.stubGlobal('turnstile', { render, reset: vi.fn() });
+    const form = signupForm();
+    const resubmits: boolean[] = [];
+    form.addEventListener('submit', (e) => resubmits.push(e.defaultPrevented));
+
+    expect(submit(form).defaultPrevented).toBe(true);
+    await vi.waitFor(() => expect(resubmits).toEqual([false]));
+
+    const challengeCall = fetchMock.mock.calls.find((c) => String(c[0]).includes('/challenge'));
+    expect(String(challengeCall![0])).toBe('https://shield.findip.net/v1/shield/challenge');
+    const sent = JSON.parse((challengeCall![1] as RequestInit).body as string);
+    expect(sent).toMatchObject({ site_key: 'pub_test', token: 'tok-123' });
+    expect(sent.session_id).toBe(state.session.sessionId);
+    expect(render.mock.calls[0][1]).toMatchObject({ sitekey: '1x00000000000000000000AA' });
+
+    // the pass sticks for the session: the next submit goes straight through
+    expect(state.challengePassed).toBe(true);
+    expect(sessionStorage.getItem('_fip_cp')).toBe(state.session.sessionId);
+    expect(submit(form).defaultPrevented).toBe(false);
+
+    const outcomes = responses(fetchMock)
+      .filter((r) => r.enforcement)
+      .map((r) => r.enforcement!.outcome);
+    expect(outcomes).toEqual(['challenged', 'passed']);
+  });
+
+  it('falls back to slow-down when no Turnstile key is configured', async () => {
+    await boot('challenge', { ...CONFIG, turnstile_site_key: null });
+    const form = signupForm();
+    expect(submit(form).defaultPrevented).toBe(true);
+    expect(form.querySelector('.findip-shield-notice')?.textContent).toMatch(/Please wait/);
+  });
+});
+
+describe('redirect', () => {
+  it('redirects blocked visitors as soon as the decision arrives, never from the target page', async () => {
+    const assign = vi.spyOn(navigation, 'assign').mockImplementation(() => undefined);
+    await boot('block', {
+      ...CONFIG,
+      actions: { ...CONFIG.actions, block: 'redirect' },
+      redirect_url: 'https://example.com/blocked',
+    });
+    expect(assign).toHaveBeenCalledWith('https://example.com/blocked');
+
+    // Same origin + path as the current page → loop guard, no redirect.
+    assign.mockClear();
+    resetState();
+    detachEnforcement();
+    init({ siteKey: 'pub_test', autoTrack: false, autoDetectForms: false });
+    applyTrackResponse({
+      risk: { recommendation: 'block' },
+      enforcement: {
+        ...CONFIG,
+        actions: { ...CONFIG.actions, block: 'redirect' },
+        redirect_url: window.location.href,
+      },
+    });
+    expect(assign).not.toHaveBeenCalled();
+  });
+});

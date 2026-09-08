@@ -29,7 +29,11 @@ function responses(fetchMock: ReturnType<typeof vi.fn>): Body[] {
     .map((call) => JSON.parse((call[1] as RequestInit).body as string) as Body);
 }
 
-function fetchWith(recommendation: string, enforcement: EnforcementConfig | null = CONFIG) {
+function fetchWith(
+  recommendation: string,
+  enforcement: EnforcementConfig | null = CONFIG,
+  rule?: { name: string; in_page?: Record<string, unknown> },
+) {
   return vi.fn().mockImplementation((url: string) => {
     if (String(url).includes('/challenge')) {
       return Promise.resolve({
@@ -50,7 +54,7 @@ function fetchWith(recommendation: string, enforcement: EnforcementConfig | null
       json: () =>
         Promise.resolve({
           request_id: 'req_1',
-          risk: { score: 90, level: 'critical', recommendation },
+          risk: { score: 90, level: 'critical', recommendation, ...(rule ? { rule } : {}) },
           ...(enforcement ? { enforcement } : {}),
         }),
     } as Response);
@@ -78,8 +82,12 @@ function submit(form: HTMLFormElement): Event {
   return event;
 }
 
-async function boot(recommendation: string, enforcement: EnforcementConfig | null = CONFIG) {
-  const fetchMock = fetchWith(recommendation, enforcement);
+async function boot(
+  recommendation: string,
+  enforcement: EnforcementConfig | null = CONFIG,
+  rule?: { name: string; in_page?: Record<string, unknown> },
+) {
+  const fetchMock = fetchWith(recommendation, enforcement, rule);
   vi.stubGlobal('fetch', fetchMock);
   // autoDetectForms off: the tracking submit listener would accumulate on
   // document across tests (init re-attaches it) and reorder ahead of ours.
@@ -262,5 +270,60 @@ describe('per-form scope (form_filters)', () => {
   it('treats an empty filter list as every form of the category', async () => {
     await boot('block', { ...CONFIG, form_filters: { signup: [] } });
     expect(submit(signupForm()).defaultPrevented).toBe(true);
+  });
+});
+
+describe('apply switches and rule overrides', () => {
+  it('skips rule verdicts when apply.rules is off, and score verdicts when apply.verdicts is off', async () => {
+    await boot('block', { ...CONFIG, apply: { verdicts: true, rules: false } }, { name: 'r1' });
+    expect(submit(signupForm()).defaultPrevented).toBe(false);
+
+    await boot('block', { ...CONFIG, apply: { verdicts: false, rules: true } });
+    expect(submit(signupForm()).defaultPrevented).toBe(false);
+
+    await boot('block', { ...CONFIG, apply: { verdicts: false, rules: true } }, { name: 'r1' });
+    expect(submit(signupForm()).defaultPrevented).toBe(true);
+  });
+
+  it("applies a rule's in-page overrides: action, delay and message", async () => {
+    vi.useFakeTimers();
+    // site says stop on block; the rule says slow for 2 s with its own text
+    await boot('block', CONFIG, {
+      name: 'gentle',
+      in_page: { action: 'slow', slow_down_seconds: 2 },
+    });
+    const form = signupForm();
+    expect(submit(form).defaultPrevented).toBe(true);
+    expect(form.querySelector('.findip-shield-notice')?.textContent).toMatch(/wait 2 seconds/);
+    vi.useRealTimers();
+
+    await boot('challenge', CONFIG, {
+      name: 'firm',
+      in_page: { action: 'stop', message: 'Rule says no.' },
+    });
+    const form2 = signupForm();
+    expect(submit(form2).defaultPrevented).toBe(true);
+    expect(form2.querySelector('.findip-shield-notice')?.textContent).toBe('Rule says no.');
+
+    await boot('block', CONFIG, { name: 'off', in_page: { action: 'none' } });
+    expect(submit(signupForm()).defaultPrevented).toBe(false);
+  });
+
+  it('uses a rule redirect URL and ignores malformed overrides', async () => {
+    const assign = vi.spyOn(navigation, 'assign').mockImplementation(() => undefined);
+    await boot('block', CONFIG, {
+      name: 'out',
+      in_page: {
+        action: 'redirect',
+        redirect_url: 'https://example.com/rule',
+        slow_down_seconds: -3,
+        bogus: 1,
+      },
+    });
+    expect(assign).toHaveBeenCalledWith('https://example.com/rule');
+    expect(state.lastRule).toEqual({
+      name: 'out',
+      inPage: { action: 'redirect', redirect_url: 'https://example.com/rule' },
+    });
   });
 });

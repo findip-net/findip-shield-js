@@ -35,7 +35,17 @@ export interface FormFilter {
   action?: string;
 }
 
+/** A custom rule's in-page overrides, delivered only when that rule decided. */
+export interface RuleInPageOverride {
+  action?: EnforcementAction | 'none';
+  slow_down_seconds?: number;
+  message?: string;
+  redirect_url?: string;
+}
+
 export interface EnforcementConfig {
+  /** Which verdict sources the page acts on; absent = both. */
+  apply?: { verdicts?: boolean; rules?: boolean };
   actions: {
     block: 'stop' | 'redirect' | 'none';
     challenge: 'challenge' | 'slow' | 'stop' | 'none';
@@ -118,21 +128,48 @@ export function applyTrackResponse(response: TrackResponse): void {
     state.enforcement = response.enforcement;
   }
   const recommendation = response.risk?.recommendation;
-  if (typeof recommendation === 'string') state.lastRecommendation = recommendation;
+  if (typeof recommendation === 'string') {
+    state.lastRecommendation = recommendation;
+    const rule = response.risk?.rule;
+    state.lastRule =
+      rule && typeof rule.name === 'string'
+        ? { name: rule.name, inPage: sanitizeOverride(rule.in_page) }
+        : null;
+  }
 
   // 'redirect' acts as soon as the page is known to be blocked, not only on
   // a submit — but never from the redirect target itself (loop guard).
   const config = state.enforcement;
-  if (
-    config &&
-    state.lastRecommendation === 'block' &&
-    config.actions.block === 'redirect' &&
-    config.redirect_url &&
-    !redirected &&
-    !onRedirectTarget(config.redirect_url)
-  ) {
-    redirect(config.redirect_url, null);
+  if (!config || state.lastRecommendation !== 'block' || !sourceApplies(config)) return;
+  const override = state.lastRule?.inPage ?? null;
+  const action = override?.action ?? config.actions.block;
+  const url = override?.redirect_url ?? config.redirect_url;
+  if (action === 'redirect' && url && !redirected && !onRedirectTarget(url)) {
+    redirect(url, null);
   }
+}
+
+/** Does the page act on the current verdict's source (Shield score vs. custom rule)? */
+function sourceApplies(config: EnforcementConfig): boolean {
+  const apply = config.apply ?? {};
+  return state.lastRule ? apply.rules !== false : apply.verdicts !== false;
+}
+
+const OVERRIDE_ACTIONS = new Set(['stop', 'slow', 'challenge', 'redirect', 'none']);
+
+function sanitizeOverride(raw: unknown): RuleInPageOverride | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const out: RuleInPageOverride = {};
+  if (typeof r.action === 'string' && OVERRIDE_ACTIONS.has(r.action)) {
+    out.action = r.action as RuleInPageOverride['action'];
+  }
+  if (typeof r.slow_down_seconds === 'number' && r.slow_down_seconds > 0) {
+    out.slow_down_seconds = r.slow_down_seconds;
+  }
+  if (typeof r.message === 'string' && r.message) out.message = r.message;
+  if (typeof r.redirect_url === 'string' && r.redirect_url) out.redirect_url = r.redirect_url;
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 function onRedirectTarget(url: string): boolean {
@@ -214,6 +251,12 @@ function scopeFor(eventName: string): EnforcementScope | null {
 }
 
 function resolveAction(config: EnforcementConfig): EnforcementAction | null {
+  const override = state.lastRule?.inPage;
+  if (override?.action) {
+    if (override.action === 'none') return null;
+    if (override.action === 'challenge' && !config.turnstile_site_key) return 'slow';
+    return override.action;
+  }
   switch (state.lastRecommendation) {
     case 'block':
       return config.actions.block === 'none' ? null : config.actions.block;
@@ -238,6 +281,7 @@ function onSubmit(event: Event): void {
   }
   const config = state.enforcement;
   if (!config || !state.lastRecommendation || state.challengePassed) return;
+  if (!sourceApplies(config)) return;
 
   const inference = inferFormEvent(form);
   const scope = scopeFor(inference.eventName);
@@ -262,25 +306,37 @@ function onSubmit(event: Event): void {
       useBeacon,
     });
 
-  debug('Enforcement', action, 'on', inference.eventName);
+  // A custom rule's in-page overrides beat the site defaults.
+  const override = state.lastRule?.inPage ?? null;
+  const message = override?.message || config.message || DEFAULT_MESSAGE;
+  const redirectUrl = override?.redirect_url ?? config.redirect_url;
+  const slowSeconds = override?.slow_down_seconds ?? config.slow_down_seconds;
+
+  debug(
+    'Enforcement',
+    action,
+    'on',
+    inference.eventName,
+    state.lastRule ? `(rule ${state.lastRule.name})` : '',
+  );
   switch (action) {
     case 'stop':
-      showNotice(form, config.message || DEFAULT_MESSAGE);
+      showNotice(form, message);
       report('blocked');
       return;
     case 'redirect':
-      if (config.redirect_url) {
-        redirect(config.redirect_url, () => report('redirected', true));
+      if (redirectUrl) {
+        redirect(redirectUrl, () => report('redirected', true));
       } else {
-        showNotice(form, config.message || DEFAULT_MESSAGE);
+        showNotice(form, message);
         report('blocked');
       }
       return;
     case 'slow':
-      slowDown(form, config.slow_down_seconds, () => report('delayed'));
+      slowDown(form, slowSeconds, () => report('delayed'));
       return;
     case 'challenge':
-      challenge(form, config, report);
+      challenge(form, config, slowSeconds, report);
       return;
   }
 }
@@ -318,11 +374,12 @@ function countdownText(seconds: number): string {
 function challenge(
   form: HTMLFormElement,
   config: EnforcementConfig,
+  slowSeconds: number,
   report: (outcome: EnforcementOutcome) => void,
 ): void {
   const siteKey = config.turnstile_site_key;
   if (!siteKey) {
-    slowDown(form, config.slow_down_seconds, () => report('delayed'));
+    slowDown(form, slowSeconds, () => report('delayed'));
     return;
   }
   pending.add(form);

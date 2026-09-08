@@ -1,6 +1,6 @@
 import type { ConsentState, PrivacyMode, ResolvedConfig } from './config';
 import type { IdentifyOptions, IdentityContext } from './identify';
-import type { EnforcementConfig } from './enforcement';
+import type { EnforcementConfig, RuleInPageOverride } from './enforcement';
 import type { TrackResponse } from './transport';
 
 export interface SessionInfo {
@@ -49,6 +49,8 @@ export interface SDKState {
   enforcement: EnforcementConfig | null;
   // latest risk.recommendation the API returned for this page
   lastRecommendation: string | null;
+  // the custom rule behind lastRecommendation, if any (with in-page overrides)
+  lastRule: { name: string; inPage: RuleInPageOverride | null } | null;
   // a Turnstile challenge verified by Shield for this session
   challengePassed: boolean;
 }
@@ -78,6 +80,7 @@ export const state: SDKState = {
   identityKeyPromise: null,
   enforcement: null,
   lastRecommendation: null,
+  lastRule: null,
   challengePassed: false,
 };
 
@@ -100,5 +103,6 @@ export function resetState(): void {
   state.identityKeyPromise = null;
   state.enforcement = null;
   state.lastRecommendation = null;
+  state.lastRule = null;
   state.challengePassed = false;
 }

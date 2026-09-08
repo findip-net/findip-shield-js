@@ -2,6 +2,22 @@
 
 All notable changes to this package are documented here.
 
+## 1.2.0 - 2026-09-08
+
+- In-page enforcement, switched on per site in the Shield dashboard
+  (Settings → Enforcement). The setting arrives inside `/track` responses,
+  so nothing changes in the snippet and no extra request is made. On a
+  signup, login, checkout, lead or password-reset form submit the SDK acts
+  on the API's recommendation: **stop** (block the submit and show a
+  message), **slow down** (a countdown, then one automatic re-submit),
+  **challenge** (a Cloudflare Turnstile widget under the form; the token is
+  verified by Shield and the pass sticks for the session), or **redirect**
+  (send blocked visitors to a URL as soon as the decision is known). Every
+  action is reported on the event (`enforcement: { action, outcome }`).
+  Fails open whenever the setting, the decision or Turnstile is missing.
+  This is friction for bots and casual abuse that run the page; the verify
+  endpoint remains the server-side boundary.
+
 ## 1.1.1 - 2026-09-07
 
 - `identify({ custom: { … } })`: attach account facts (for example an

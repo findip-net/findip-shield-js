@@ -32,6 +32,7 @@ export function buildPayload(
   event: EventMeta,
   formMeta?: FormMetadata | null,
   customerContext?: Record<string, unknown>,
+  enforcement?: { action: string; outcome: string } | null,
 ): Record<string, unknown> {
   const config = state.config!;
   const privacyMode = getEffectivePrivacyMode();
@@ -67,6 +68,10 @@ export function buildPayload(
       },
     },
   };
+
+  if (enforcement) {
+    payload.enforcement = { action: enforcement.action, outcome: enforcement.outcome };
+  }
 
   if (formMeta) {
     payload.form = {

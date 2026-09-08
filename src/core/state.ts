@@ -1,5 +1,6 @@
 import type { ConsentState, PrivacyMode, ResolvedConfig } from './config';
 import type { IdentifyOptions, IdentityContext } from './identify';
+import type { EnforcementConfig } from './enforcement';
 import type { TrackResponse } from './transport';
 
 export interface SessionInfo {
@@ -44,6 +45,12 @@ export interface SDKState {
   identityEncryption: Promise<void> | null;
   // the site's identity public key, fetched once per page (null = none)
   identityKeyPromise: Promise<string | null> | null;
+  // in-page enforcement setting from the latest /track response (null = off)
+  enforcement: EnforcementConfig | null;
+  // latest risk.recommendation the API returned for this page
+  lastRecommendation: string | null;
+  // a Turnstile challenge verified by Shield for this session
+  challengePassed: boolean;
 }
 
 export const state: SDKState = {
@@ -69,6 +76,9 @@ export const state: SDKState = {
   identityOptions: null,
   identityEncryption: null,
   identityKeyPromise: null,
+  enforcement: null,
+  lastRecommendation: null,
+  challengePassed: false,
 };
 
 export function resetState(): void {
@@ -88,4 +98,7 @@ export function resetState(): void {
   state.identityOptions = null;
   state.identityEncryption = null;
   state.identityKeyPromise = null;
+  state.enforcement = null;
+  state.lastRecommendation = null;
+  state.challengePassed = false;
 }

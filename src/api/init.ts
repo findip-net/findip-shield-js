@@ -1,9 +1,5 @@
 import type { FindIPConfig } from '../core/config';
-import {
-  parseScriptTagConfig,
-  resolveConfig,
-  SDK_VERSION,
-} from '../core/config';
+import { parseScriptTagConfig, resolveConfig, SDK_VERSION } from '../core/config';
 import { applyConsent, isTrackingAllowed } from '../core/consent';
 import {
   hasSessionStarted,
@@ -12,11 +8,17 @@ import {
   refreshSessionId,
 } from '../core/session-ids';
 import { state } from '../core/state';
-import { attachFormListeners, inferFormEvent, observeFormViews, scanFormMetadata } from '../collectors/forms';
+import {
+  attachFormListeners,
+  inferFormEvent,
+  observeFormViews,
+  scanFormMetadata,
+} from '../collectors/forms';
 import { inferPageEvent } from '../collectors/url-inference';
 import { isGtmPresent } from '../collectors/gtm';
 import { hasIdentity, resolveIdentity, type IdentifyOptions } from '../core/identify';
 import { trackEvent } from './track';
+import { attachEnforcement } from '../core/enforcement';
 import { debug } from '../utils/logger';
 
 let unloadHandlerAttached = false;
@@ -46,6 +48,9 @@ export function init(options: FindIPConfig): void {
     debug('Tracking disabled by consent');
     return;
   }
+
+  // Before the form tracking listener: enforcement runs first on a submit.
+  attachEnforcement();
 
   if (config.autoTrack) {
     void sendAutoPageEvents();

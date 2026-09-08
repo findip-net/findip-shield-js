@@ -82,6 +82,9 @@ export function buildPayload(
       has_payment_field: formMeta.has_payment_field,
       has_message_field: formMeta.has_message_field,
       submit_text_type: formMeta.submit_text_type,
+      ...(formMeta.form_id ? { form_id: formMeta.form_id } : {}),
+      ...(formMeta.form_name ? { form_name: formMeta.form_name } : {}),
+      ...(formMeta.form_action ? { form_action: formMeta.form_action } : {}),
     };
   }
 

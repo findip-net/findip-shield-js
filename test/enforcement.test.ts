@@ -236,3 +236,31 @@ describe('redirect', () => {
     expect(assign).not.toHaveBeenCalled();
   });
 });
+
+describe('per-form scope (form_filters)', () => {
+  it('only enforces forms matching a filter of their category and reports the fingerprint', async () => {
+    const fetchMock = await boot('block', {
+      ...CONFIG,
+      form_filters: {
+        signup: [
+          { path: '/', id: 'other' },
+          { action: '/signup', name: 'join' },
+        ],
+      },
+    });
+    const form = signupForm(); // id "f", action "/signup", no name
+    expect(submit(form).defaultPrevented).toBe(false);
+
+    form.setAttribute('name', 'join');
+    expect(submit(form).defaultPrevented).toBe(true);
+
+    await vi.waitFor(() => expect(responses(fetchMock).length).toBe(2));
+    const report = responses(fetchMock)[1] as Body & { form?: Record<string, unknown> };
+    expect(report.form).toMatchObject({ form_id: 'f', form_name: 'join', form_action: '/signup' });
+  });
+
+  it('treats an empty filter list as every form of the category', async () => {
+    await boot('block', { ...CONFIG, form_filters: { signup: [] } });
+    expect(submit(signupForm()).defaultPrevented).toBe(true);
+  });
+});

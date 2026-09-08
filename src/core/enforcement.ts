@@ -27,6 +27,14 @@ export type EnforcementOutcome =
   | 'failed'
   | 'redirected';
 
+/** Narrows a scope category to specific forms; every given key must match. */
+export interface FormFilter {
+  path?: string;
+  id?: string;
+  name?: string;
+  action?: string;
+}
+
 export interface EnforcementConfig {
   actions: {
     block: 'stop' | 'redirect' | 'none';
@@ -34,6 +42,8 @@ export interface EnforcementConfig {
     monitor: 'slow' | 'none';
   };
   scope: EnforcementScope[];
+  /** Per category: only these forms (absent/empty = every form of the category). */
+  form_filters?: Partial<Record<EnforcementScope, FormFilter[]>>;
   message: string;
   redirect_url: string | null;
   slow_down_seconds: number;
@@ -171,6 +181,34 @@ function rememberChallengePassed(): void {
   }
 }
 
+function formMatchesFilters(
+  form: HTMLFormElement,
+  meta: { form_id: string | null; form_name: string | null; form_action: string | null },
+  filters: FormFilter[] | undefined,
+): boolean {
+  if (!filters || filters.length === 0) return true;
+  const path = typeof window !== 'undefined' ? window.location.pathname : '';
+  return filters.some((f) => {
+    if (!f || typeof f !== 'object') return false;
+    const keys = (['path', 'id', 'name', 'action'] as const).filter(
+      (k) => typeof f[k] === 'string' && f[k],
+    );
+    if (keys.length === 0) return false;
+    return keys.every((k) => {
+      switch (k) {
+        case 'path':
+          return f.path === path;
+        case 'id':
+          return f.id === (meta.form_id ?? form.id);
+        case 'name':
+          return f.name === meta.form_name;
+        case 'action':
+          return f.action === meta.form_action;
+      }
+    });
+  });
+}
+
 function scopeFor(eventName: string): EnforcementScope | null {
   return SCOPE_BY_EVENT[eventName] ?? null;
 }
@@ -204,6 +242,7 @@ function onSubmit(event: Event): void {
   const inference = inferFormEvent(form);
   const scope = scopeFor(inference.eventName);
   if (!scope || !config.scope.includes(scope)) return;
+  if (!formMatchesFilters(form, inference.metadata, config.form_filters?.[scope])) return;
 
   const action = resolveAction(config);
   if (!action) return;

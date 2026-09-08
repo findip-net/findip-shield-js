@@ -19,6 +19,39 @@ export interface FormMetadata {
   has_payment_field: boolean;
   has_message_field: boolean;
   submit_text_type: SubmitTextType;
+  // Fingerprint (metadata only, never values): lets the dashboard list the
+  // forms it has seen and scope enforcement to specific ones.
+  form_id: string | null;
+  form_name: string | null;
+  form_action: string | null;
+}
+
+const FINGERPRINT_MAX = 200;
+
+function fingerprintValue(value: string | null | undefined): string | null {
+  const trimmed = (value ?? '').trim();
+  return trimmed ? trimmed.slice(0, FINGERPRINT_MAX) : null;
+}
+
+/** The form's action as a path (no query string, no host). */
+export function formActionPath(form: HTMLFormElement): string | null {
+  const raw = form.getAttribute('action');
+  if (raw === null || raw.trim() === '') return null;
+  try {
+    return fingerprintValue(new URL(raw, window.location.href).pathname);
+  } catch {
+    return null;
+  }
+}
+
+export function formFingerprint(
+  form: HTMLFormElement,
+): Pick<FormMetadata, 'form_id' | 'form_name' | 'form_action'> {
+  return {
+    form_id: fingerprintValue(form.id),
+    form_name: fingerprintValue(form.getAttribute('name')),
+    form_action: formActionPath(form),
+  };
 }
 
 export interface FormInferenceResult {
@@ -54,6 +87,7 @@ export function scanFormMetadata(form: HTMLFormElement): FormMetadata {
     has_payment_field: fields.some((f) => isPaymentField(f)),
     has_message_field: fields.some((f) => isMessageField(f)),
     submit_text_type: classifySubmitText(submitText),
+    ...formFingerprint(form),
   };
 }
 
@@ -128,7 +162,11 @@ function classifySubmitText(text: string): SubmitTextType {
   return 'generic';
 }
 
-export function inferFormEvent(form: HTMLFormElement, path?: string, title?: string): FormInferenceResult {
+export function inferFormEvent(
+  form: HTMLFormElement,
+  path?: string,
+  title?: string,
+): FormInferenceResult {
   const metadata = scanFormMetadata(form);
   const submitText = getSubmitButtonText(form);
   const pageInference = inferPageEvent(path ?? getPagePath(), title ?? getPageTitle());

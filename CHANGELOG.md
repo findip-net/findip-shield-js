@@ -2,6 +2,17 @@
 
 All notable changes to this package are documented here.
 
+## 1.3.0 - 2026-09-08
+
+- Form events carry a fingerprint of the form — `form_id`, `form_name` and
+  `form_action` (the action's path, without query string) — so the Shield
+  dashboard can list the forms it has seen on a site. Metadata only; field
+  values are never collected.
+- In-page enforcement can be scoped to specific forms: the dashboard's
+  per-category form selection arrives as `form_filters` next to `scope`
+  and the SDK enforces only matching forms. Sites without a selection keep
+  category-wide enforcement.
+
 ## 1.2.0 - 2026-09-08
 
 - In-page enforcement, switched on per site in the Shield dashboard

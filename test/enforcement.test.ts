@@ -163,7 +163,7 @@ describe('slow', () => {
     expect(form.querySelector('.findip-shield-notice')?.textContent).toMatch(/wait 2 seconds/);
     vi.advanceTimersByTime(1000);
     expect(form.querySelector('.findip-shield-notice')?.textContent).toMatch(
-      /wait 1 second before/,
+      /wait 1 seconds before/,
     );
     vi.advanceTimersByTime(1000);
     // only the re-submit reached the form's own listener (the first was
@@ -325,5 +325,35 @@ describe('apply switches and rule overrides', () => {
       name: 'out',
       inPage: { action: 'redirect', redirect_url: 'https://example.com/rule' },
     });
+  });
+});
+
+describe('custom challenge and slow-down text', () => {
+  it('uses the site texts, with {seconds} replaced, and rule overrides beat them', async () => {
+    vi.useFakeTimers();
+    await boot('monitor', { ...CONFIG, slow_down_message: 'Hold on {seconds}s…' });
+    const form = signupForm();
+    submit(form);
+    expect(form.querySelector('.findip-shield-notice')?.textContent).toBe('Hold on 2s…');
+    vi.advanceTimersByTime(1000);
+    expect(form.querySelector('.findip-shield-notice')?.textContent).toBe('Hold on 1s…');
+    vi.useRealTimers();
+
+    await boot(
+      'challenge',
+      { ...CONFIG, challenge_message: 'Site: prove you are human.' },
+      {
+        name: 'r',
+        in_page: { challenge_message: 'Rule: quick check please.' },
+      },
+    );
+    vi.stubGlobal('turnstile', { render: vi.fn(() => 'w'), reset: vi.fn() });
+    const form2 = signupForm();
+    submit(form2);
+    await vi.waitFor(() =>
+      expect(form2.querySelector('.findip-shield-notice')?.firstChild?.textContent).toBe(
+        'Rule: quick check please.',
+      ),
+    );
   });
 });

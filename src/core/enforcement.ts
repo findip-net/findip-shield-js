@@ -17,7 +17,10 @@ import { debug } from '../utils/logger';
  * Fail open everywhere: no setting, no recommendation yet, Turnstile down →
  * the submit goes through.
  */
-export type EnforcementScope = 'signup' | 'login' | 'checkout' | 'lead' | 'password_reset';
+/** Form types Shield enforces; 'other' = forms it could not recognise (picked one by one in the dashboard). */
+export type EnforcementScope = 'signup' | 'login' | 'checkout' | 'lead' | 'password_reset' | 'other';
+/** What the customer said a form really is; 'ignore' = never classify or enforce it. */
+export type FormOverrideType = EnforcementScope | 'ignore';
 export type EnforcementAction = 'stop' | 'slow' | 'challenge' | 'redirect';
 export type EnforcementOutcome =
   | 'blocked'
@@ -33,6 +36,26 @@ export interface FormFilter {
   id?: string;
   name?: string;
   action?: string;
+}
+
+/**
+ * A customer's correction of what one form is, set in the dashboard: page
+ * path plus fingerprint keys (each given key must match). Applied before
+ * Shield's own inference, for tracking and enforcement alike.
+ */
+export interface FormOverride extends FormFilter {
+  path: string;
+  type: FormOverrideType;
+  label?: string;
+}
+
+/** What a form submit is called once overrides are applied. */
+export interface ResolvedFormEvent {
+  eventName: string;
+  /** The customer asked Shield to leave this form alone. */
+  ignored: boolean;
+  /** A customer correction decided the name (reported as detection_method). */
+  overridden: boolean;
 }
 
 /** A custom rule's in-page overrides, delivered only when that rule decided. */
@@ -56,6 +79,8 @@ export interface EnforcementConfig {
   scope: EnforcementScope[];
   /** Per category: only these forms (absent/empty = every form of the category). */
   form_filters?: Partial<Record<EnforcementScope, FormFilter[]>>;
+  /** Customer corrections of form classification (SDK 1.6.0). */
+  form_overrides?: FormOverride[];
   message: string;
   /** Shown above the Turnstile widget (absent = built-in text). */
   challenge_message?: string;
@@ -86,7 +111,20 @@ const SCOPE_BY_EVENT: Record<string, EnforcementScope> = {
   payment_attempt: 'checkout',
   lead_submitted: 'lead',
   password_reset_attempt: 'password_reset',
+  form_submitted: 'other',
 };
+
+/** The submit event a form of each type reports (same table as the Shield API). */
+const SUBMIT_EVENT_BY_TYPE: Record<FormOverrideType, string> = {
+  signup: 'signup_attempt',
+  login: 'login_attempt',
+  checkout: 'checkout_started',
+  lead: 'lead_submitted',
+  password_reset: 'password_reset_attempt',
+  other: 'form_submitted',
+  ignore: 'form_submitted',
+};
+const OVERRIDE_DETECTION = 'customer_override';
 
 // Forms whose next submit event must pass through untouched (our own
 // re-submit after a delay or a passed challenge).
@@ -232,32 +270,63 @@ function rememberChallengePassed(): void {
   }
 }
 
+type FormMeta = { form_id: string | null; form_name: string | null; form_action: string | null };
+
+/** The page path the dashboard stores: lowercase pathname, no query or fragment. */
+function currentPagePath(): string {
+  return typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
+}
+
+/** Every key the filter carries must match the form (a filter with no keys matches nothing). */
+function filterMatches(f: FormFilter, form: HTMLFormElement, meta: FormMeta, path: string): boolean {
+  if (!f || typeof f !== 'object') return false;
+  const keys = (['path', 'id', 'name', 'action'] as const).filter(
+    (k) => typeof f[k] === 'string' && f[k],
+  );
+  if (keys.length === 0) return false;
+  return keys.every((k) => {
+    switch (k) {
+      case 'path':
+        return f.path === path;
+      case 'id':
+        return f.id === (meta.form_id ?? form.id);
+      case 'name':
+        return f.name === meta.form_name;
+      case 'action':
+        return f.action === meta.form_action;
+    }
+  });
+}
+
 function formMatchesFilters(
   form: HTMLFormElement,
-  meta: { form_id: string | null; form_name: string | null; form_action: string | null },
+  meta: FormMeta,
   filters: FormFilter[] | undefined,
 ): boolean {
   if (!filters || filters.length === 0) return true;
-  const path = typeof window !== 'undefined' ? window.location.pathname : '';
-  return filters.some((f) => {
-    if (!f || typeof f !== 'object') return false;
-    const keys = (['path', 'id', 'name', 'action'] as const).filter(
-      (k) => typeof f[k] === 'string' && f[k],
-    );
-    if (keys.length === 0) return false;
-    return keys.every((k) => {
-      switch (k) {
-        case 'path':
-          return f.path === path;
-        case 'id':
-          return f.id === (meta.form_id ?? form.id);
-        case 'name':
-          return f.name === meta.form_name;
-        case 'action':
-          return f.action === meta.form_action;
-      }
-    });
-  });
+  const path = currentPagePath();
+  return filters.some((f) => filterMatches(f, form, meta, path));
+}
+
+/**
+ * Applies the site's form corrections to an inference: the customer's word
+ * beats the heuristics. Without a matching correction the inference stands.
+ */
+export function resolveFormEvent(
+  form: HTMLFormElement,
+  inference: { eventName: string; metadata: FormMeta },
+): ResolvedFormEvent {
+  const overrides = state.enforcement?.form_overrides;
+  if (!overrides || overrides.length === 0) {
+    return { eventName: inference.eventName, ignored: false, overridden: false };
+  }
+  const path = currentPagePath();
+  const match = overrides.find(
+    (o) => o && typeof o === 'object' && typeof o.type === 'string' && o.type in SUBMIT_EVENT_BY_TYPE
+      && filterMatches(o, form, inference.metadata, path),
+  );
+  if (!match) return { eventName: inference.eventName, ignored: false, overridden: false };
+  return { eventName: SUBMIT_EVENT_BY_TYPE[match.type], ignored: match.type === 'ignore', overridden: true };
 }
 
 function scopeFor(eventName: string): EnforcementScope | null {
@@ -298,7 +367,9 @@ function onSubmit(event: Event): void {
   if (!sourceApplies(config)) return;
 
   const inference = inferFormEvent(form);
-  const scope = scopeFor(inference.eventName);
+  const resolved = resolveFormEvent(form, inference);
+  if (resolved.ignored) return;
+  const scope = scopeFor(resolved.eventName);
   if (!scope || !config.scope.includes(scope)) return;
   if (!formMatchesFilters(form, inference.metadata, config.form_filters?.[scope])) return;
 
@@ -310,11 +381,11 @@ function onSubmit(event: Event): void {
   if (pending.has(form)) return;
 
   const report = (outcome: EnforcementOutcome, useBeacon = false) =>
-    void trackEvent(inference.eventName, {
+    void trackEvent(resolved.eventName, {
       source: 'enforcement',
       auto_detected: true,
-      confidence: inference.confidence,
-      detection_method: inference.detection_method,
+      confidence: resolved.overridden ? 1 : inference.confidence,
+      detection_method: resolved.overridden ? OVERRIDE_DETECTION : inference.detection_method,
       formMeta: inference.metadata,
       enforcement: { action, outcome },
       useBeacon,
@@ -334,7 +405,7 @@ function onSubmit(event: Event): void {
     'Enforcement',
     action,
     'on',
-    inference.eventName,
+    resolved.eventName,
     state.lastRule ? `(rule ${state.lastRule.name})` : '',
   );
   switch (action) {

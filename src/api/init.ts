@@ -18,7 +18,7 @@ import { inferPageEvent } from '../collectors/url-inference';
 import { isGtmPresent } from '../collectors/gtm';
 import { hasIdentity, resolveIdentity, type IdentifyOptions } from '../core/identify';
 import { trackEvent } from './track';
-import { attachEnforcement } from '../core/enforcement';
+import { attachEnforcement, resolveFormEvent } from '../core/enforcement';
 import { debug } from '../utils/logger';
 
 let unloadHandlerAttached = false;
@@ -110,11 +110,14 @@ function setupFormDetection(): void {
     if (!isTrackingAllowed()) return;
 
     const inference = inferFormEvent(form);
-    void trackEvent(inference.eventName, {
+    // The customer's correction (dashboard) beats the heuristics; an ignored
+    // form is still counted, as an unrecognised submit.
+    const resolved = resolveFormEvent(form, inference);
+    void trackEvent(resolved.eventName, {
       source: 'auto_form_detect',
       auto_detected: true,
-      confidence: inference.confidence,
-      detection_method: inference.detection_method,
+      confidence: resolved.overridden ? 1 : inference.confidence,
+      detection_method: resolved.overridden ? 'customer_override' : inference.detection_method,
       formMeta: inference.metadata,
       useBeacon: true,
     });
@@ -125,7 +128,7 @@ function setupFormDetection(): void {
 
     const metadata = scanFormMetadata(form);
     const inference = inferFormEvent(form);
-    const viewEvent = mapFormToViewEvent(inference.eventName);
+    const viewEvent = mapFormToViewEvent(resolveFormEvent(form, inference).eventName);
 
     if (viewEvent) {
       void trackEvent(viewEvent, {

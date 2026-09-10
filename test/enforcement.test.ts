@@ -5,8 +5,10 @@ import {
   applyTrackResponse,
   detachEnforcement,
   navigation,
+  resolveFormEvent,
   type EnforcementConfig,
 } from '../src/core/enforcement';
+import { inferFormEvent } from '../src/collectors/forms';
 import { resetState, state } from '../src/core/state';
 
 const CONFIG: EnforcementConfig = {
@@ -270,6 +272,67 @@ describe('per-form scope (form_filters)', () => {
   it('treats an empty filter list as every form of the category', async () => {
     await boot('block', { ...CONFIG, form_filters: { signup: [] } });
     expect(submit(signupForm()).defaultPrevented).toBe(true);
+  });
+});
+
+function genericForm(id = 'g'): HTMLFormElement {
+  document.body.innerHTML = `
+    <form id="${id}" action="/api/check" method="post">
+      <input type="text" name="domain" value="example.com">
+      <button type="submit">Check</button>
+    </form>`;
+  const form = document.getElementById(id) as HTMLFormElement;
+  form.requestSubmit = () => {
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  };
+  return form;
+}
+
+describe('unrecognised forms ("other") and customer corrections (form_overrides)', () => {
+  it('enforces an unrecognised form only when "other" is in scope and the form is picked', async () => {
+    await boot('block', { ...CONFIG, scope: ['signup'] });
+    expect(submit(genericForm()).defaultPrevented).toBe(false);
+    await boot('block', { ...CONFIG, scope: ['other'], form_filters: { other: [{ path: '/', id: 'g' }] } });
+    expect(submit(genericForm()).defaultPrevented).toBe(true);
+    expect(submit(genericForm('h')).defaultPrevented).toBe(false);
+  });
+
+  it('applies a correction before inference, for enforcement and the reported event', async () => {
+    const fetchMock = await boot('block', {
+      ...CONFIG,
+      scope: ['other'],
+      form_overrides: [{ path: '/', id: 'f', type: 'other', label: 'Email verifier' }],
+    });
+    // Looks like a sign-up to the heuristics; the customer says it is not.
+    const form = signupForm();
+    expect(submit(form).defaultPrevented).toBe(true);
+    await vi.waitFor(() => expect(responses(fetchMock).length).toBe(2));
+    const reported = responses(fetchMock)[1];
+    expect(reported.event).toMatchObject({ name: 'form_submitted', source: 'enforcement', detection_method: 'customer_override' });
+    expect(reported.enforcement).toEqual({ action: 'stop', outcome: 'blocked' });
+  });
+
+  it('never touches a form the customer marked as ignored, whatever it looks like', async () => {
+    await boot('block', { ...CONFIG, form_overrides: [{ path: '/', action: '/signup', type: 'ignore' }] });
+    expect(submit(signupForm()).defaultPrevented).toBe(false);
+  });
+
+  it('matches paths the way the dashboard stores them: lowercase', async () => {
+    window.history.pushState({}, '', '/Join');
+    try {
+      await boot('block', { ...CONFIG, form_filters: { signup: [{ path: '/join' }] } });
+      expect(submit(signupForm()).defaultPrevented).toBe(true);
+      const resolved = resolveFormEvent(signupForm(), inferFormEvent(signupForm()));
+      expect(resolved).toEqual({ eventName: 'signup_attempt', ignored: false, overridden: false });
+    } finally {
+      window.history.pushState({}, '', '/');
+    }
+  });
+
+  it('leaves the inference alone without a matching correction', async () => {
+    await boot('block', { ...CONFIG, form_overrides: [{ path: '/elsewhere', id: 'f', type: 'ignore' }] });
+    const form = signupForm();
+    expect(resolveFormEvent(form, inferFormEvent(form))).toEqual({ eventName: 'signup_attempt', ignored: false, overridden: false });
   });
 });
 

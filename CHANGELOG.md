@@ -2,6 +2,18 @@
 
 All notable changes to this package are documented here.
 
+## 1.6.0 - 2026-09-10
+
+- Form corrections from the dashboard (`form_overrides` in the enforcement
+  setting): a customer can say what a form on a page really is (sign-up,
+  login, checkout, email/contact, password reset, other) or that Shield
+  should ignore it. The correction is applied before Shield's own inference,
+  so tracked event names and in-page enforcement follow it. No page change
+  needed.
+- New enforcement scope `other` for forms Shield cannot recognise
+  (`form_submitted`); enforced only for the forms picked in the dashboard.
+- Form filters match the page path lowercased, the way the dashboard stores it.
+
 ## 1.5.0 - 2026-09-08
 
 - The challenge text (above the Turnstile widget) and the slow-down

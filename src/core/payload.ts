@@ -85,6 +85,7 @@ export function buildPayload(
       ...(formMeta.form_id ? { form_id: formMeta.form_id } : {}),
       ...(formMeta.form_name ? { form_name: formMeta.form_name } : {}),
       ...(formMeta.form_action ? { form_action: formMeta.form_action } : {}),
+      ...(formMeta.outline ? { outline: formMeta.outline } : {}),
     };
   }
 

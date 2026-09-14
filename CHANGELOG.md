@@ -2,6 +2,16 @@
 
 All notable changes to this package are documented here.
 
+## 1.7.0 - 2026-09-14
+
+### Added
+
+- Per-form enforcement types: a `form_filters` entry may name a `type`, resolved
+  against the new `form_types` map in the enforcement setting (actions, texts,
+  delay, redirect URL). A form whose filter names no type, or an unknown one,
+  keeps the site-wide response, so older payloads behave exactly as before. A
+  custom rule's in-page override still wins over the form's type.
+
 ## 1.6.0 - 2026-09-10
 
 - Form corrections from the dashboard (`form_overrides` in the enforcement

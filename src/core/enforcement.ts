@@ -36,6 +36,18 @@ export interface FormFilter {
   id?: string;
   name?: string;
   action?: string;
+  /** The enforcement type this form uses (SDK 1.7.0): a key of form_types. */
+  type?: string;
+}
+
+/** A per-form response (SDK 1.7.0): what the site-wide fields say, for one enforcement type. */
+export interface FormTypeResponse {
+  actions: EnforcementConfig['actions'];
+  message?: string;
+  challenge_message?: string;
+  slow_down_message?: string;
+  redirect_url?: string | null;
+  slow_down_seconds?: number;
 }
 
 /**
@@ -79,6 +91,8 @@ export interface EnforcementConfig {
   scope: EnforcementScope[];
   /** Per category: only these forms (absent/empty = every form of the category). */
   form_filters?: Partial<Record<EnforcementScope, FormFilter[]>>;
+  /** Per-form enforcement types (SDK 1.7.0), keyed by the `type` a filter names; absent = the site-wide response. */
+  form_types?: Record<string, FormTypeResponse>;
   /** Customer corrections of form classification (SDK 1.6.0). */
   form_overrides?: FormOverride[];
   message: string;
@@ -298,14 +312,39 @@ function filterMatches(f: FormFilter, form: HTMLFormElement, meta: FormMeta, pat
   });
 }
 
-function formMatchesFilters(
+/** The filter this form matches, `true` when the category has no filters, null when none matches. */
+function matchingFilter(
   form: HTMLFormElement,
   meta: FormMeta,
   filters: FormFilter[] | undefined,
-): boolean {
+): FormFilter | true | null {
   if (!filters || filters.length === 0) return true;
   const path = currentPagePath();
-  return filters.some((f) => filterMatches(f, form, meta, path));
+  return filters.find((f) => filterMatches(f, form, meta, path)) ?? null;
+}
+
+/**
+ * What the site does for this form: the enforcement type its filter names
+ * (SDK 1.7.0), falling back field by field to the site-wide response, which
+ * is all older payloads carry.
+ */
+function responseFor(config: EnforcementConfig, filter: FormFilter | true): FormTypeResponse {
+  const type = filter !== true && typeof filter.type === 'string' ? config.form_types?.[filter.type] : undefined;
+  const actions = type?.actions;
+  const valid =
+    actions &&
+    typeof actions.block === 'string' &&
+    typeof actions.challenge === 'string' &&
+    typeof actions.monitor === 'string';
+  return {
+    actions: valid ? actions : config.actions,
+    message: type?.message || config.message,
+    challenge_message: type?.challenge_message || config.challenge_message,
+    slow_down_message: type?.slow_down_message || config.slow_down_message,
+    redirect_url: type && type.redirect_url !== undefined ? type.redirect_url : config.redirect_url,
+    slow_down_seconds:
+      typeof type?.slow_down_seconds === 'number' ? type.slow_down_seconds : config.slow_down_seconds,
+  };
 }
 
 /**
@@ -333,7 +372,10 @@ function scopeFor(eventName: string): EnforcementScope | null {
   return SCOPE_BY_EVENT[eventName] ?? null;
 }
 
-function resolveAction(config: EnforcementConfig): EnforcementAction | null {
+function resolveAction(
+  config: EnforcementConfig,
+  actions: EnforcementConfig['actions'],
+): EnforcementAction | null {
   const override = state.lastRule?.inPage;
   if (override?.action) {
     if (override.action === 'none') return null;
@@ -342,14 +384,14 @@ function resolveAction(config: EnforcementConfig): EnforcementAction | null {
   }
   switch (state.lastRecommendation) {
     case 'block':
-      return config.actions.block === 'none' ? null : config.actions.block;
+      return actions.block === 'none' ? null : actions.block;
     case 'challenge': {
-      if (config.actions.challenge === 'none') return null;
-      if (config.actions.challenge === 'challenge' && !config.turnstile_site_key) return 'slow';
-      return config.actions.challenge;
+      if (actions.challenge === 'none') return null;
+      if (actions.challenge === 'challenge' && !config.turnstile_site_key) return 'slow';
+      return actions.challenge;
     }
     case 'monitor':
-      return config.actions.monitor === 'none' ? null : config.actions.monitor;
+      return actions.monitor === 'none' ? null : actions.monitor;
     default:
       return null;
   }
@@ -371,9 +413,11 @@ function onSubmit(event: Event): void {
   if (resolved.ignored) return;
   const scope = scopeFor(resolved.eventName);
   if (!scope || !config.scope.includes(scope)) return;
-  if (!formMatchesFilters(form, inference.metadata, config.form_filters?.[scope])) return;
+  const filter = matchingFilter(form, inference.metadata, config.form_filters?.[scope]);
+  if (!filter) return;
+  const response = responseFor(config, filter);
 
-  const action = resolveAction(config);
+  const action = resolveAction(config, response.actions);
   if (!action) return;
 
   event.preventDefault();
@@ -391,15 +435,16 @@ function onSubmit(event: Event): void {
       useBeacon,
     });
 
-  // A custom rule's in-page overrides beat the site defaults.
+  // A custom rule's in-page overrides beat the form's enforcement type,
+  // which beats the site defaults.
   const override = state.lastRule?.inPage ?? null;
-  const message = override?.message || config.message || DEFAULT_MESSAGE;
+  const message = override?.message || response.message || DEFAULT_MESSAGE;
   const challengeMessage =
-    override?.challenge_message || config.challenge_message || DEFAULT_CHALLENGE_MESSAGE;
+    override?.challenge_message || response.challenge_message || DEFAULT_CHALLENGE_MESSAGE;
   const slowMessage =
-    override?.slow_down_message || config.slow_down_message || DEFAULT_SLOW_DOWN_MESSAGE;
-  const redirectUrl = override?.redirect_url ?? config.redirect_url;
-  const slowSeconds = override?.slow_down_seconds ?? config.slow_down_seconds;
+    override?.slow_down_message || response.slow_down_message || DEFAULT_SLOW_DOWN_MESSAGE;
+  const redirectUrl = override?.redirect_url ?? response.redirect_url ?? null;
+  const slowSeconds = override?.slow_down_seconds ?? response.slow_down_seconds ?? config.slow_down_seconds;
 
   debug(
     'Enforcement',

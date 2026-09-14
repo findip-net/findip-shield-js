@@ -275,6 +275,75 @@ describe('per-form scope (form_filters)', () => {
   });
 });
 
+describe('per-form enforcement types (form_types)', () => {
+  const notice = () => document.querySelector('.findip-shield-notice')?.textContent ?? null;
+
+  it("applies the type a form's filter names instead of the site-wide response", async () => {
+    await boot('block', {
+      ...CONFIG,
+      actions: { block: 'none', challenge: 'none', monitor: 'none' },
+      form_filters: { signup: [{ id: 'f', type: 'et_strict' }] },
+      form_types: {
+        et_strict: { actions: { block: 'stop', challenge: 'stop', monitor: 'none' }, message: 'Strict message.' },
+      },
+    });
+    expect(submit(signupForm()).defaultPrevented).toBe(true);
+    expect(notice()).toBe('Strict message.');
+  });
+
+  it('falls back to the site-wide response for a filter without a type or with an unknown one', async () => {
+    await boot('block', {
+      ...CONFIG,
+      form_filters: { signup: [{ id: 'f', type: 'et_missing' }] },
+      form_types: { et_other: { actions: { block: 'none', challenge: 'none', monitor: 'none' } } },
+    });
+    expect(submit(signupForm()).defaultPrevented).toBe(true);
+    expect(notice()).toBe('Blocked by test.');
+    detachEnforcement();
+    resetState();
+    await boot('block', { ...CONFIG, form_filters: { signup: [{ id: 'f' }] } });
+    expect(submit(signupForm()).defaultPrevented).toBe(true);
+  });
+
+  it('lets a type let the visitor through while the site default would stop', async () => {
+    await boot('block', {
+      ...CONFIG,
+      form_filters: { signup: [{ id: 'f', type: 'et_monitor' }] },
+      form_types: { et_monitor: { actions: { block: 'none', challenge: 'none', monitor: 'none' } } },
+    });
+    expect(submit(signupForm()).defaultPrevented).toBe(false);
+  });
+
+  it("uses the type's own delay and texts, and a rule's in-page override still wins", async () => {
+    vi.useFakeTimers();
+    await boot('challenge', {
+      ...CONFIG,
+      turnstile_site_key: null,
+      form_filters: { signup: [{ id: 'f', type: 'et_slow' }] },
+      form_types: {
+        et_slow: { actions: { block: 'stop', challenge: 'slow', monitor: 'none' }, slow_down_seconds: 9, slow_down_message: 'Hold on {seconds}' },
+      },
+    });
+    expect(submit(signupForm()).defaultPrevented).toBe(true);
+    expect(notice()).toBe('Hold on 9');
+    vi.useRealTimers();
+    detachEnforcement();
+    resetState();
+    await boot(
+      'challenge',
+      {
+        ...CONFIG,
+        turnstile_site_key: null,
+        form_filters: { signup: [{ id: 'f', type: 'et_slow' }] },
+        form_types: { et_slow: { actions: { block: 'stop', challenge: 'slow', monitor: 'none' }, message: 'Type message.' } },
+      },
+      { name: 'vip', in_page: { action: 'stop', message: 'Rule message.' } },
+    );
+    expect(submit(signupForm()).defaultPrevented).toBe(true);
+    expect(notice()).toBe('Rule message.');
+  });
+});
+
 function genericForm(id = 'g'): HTMLFormElement {
   document.body.innerHTML = `
     <form id="${id}" action="/api/check" method="post">

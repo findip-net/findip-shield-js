@@ -1,4 +1,4 @@
-import { isSensitiveFieldName } from '../utils/safe';
+import { containsSensitivePattern, isSensitiveFieldName } from '../utils/safe';
 import { inferPageEvent, mapViewToAttemptEvent, mapViewToPaymentAttempt } from './url-inference';
 import { getPagePath, getPageTitle } from './page';
 
@@ -24,9 +24,28 @@ export interface FormMetadata {
   form_id: string | null;
   form_name: string | null;
   form_action: string | null;
+  // What the form looks like (SDK 1.8.0): field types with their labels and
+  // the submit button's text, so the dashboard can draw a recognisable mock.
+  // Page markup only, never values; capped and filtered like the fingerprint.
+  outline: FormOutline | null;
+}
+
+export interface FormOutlineField {
+  /** input type, or "select" / "textarea". */
+  type: string;
+  /** The field's label, aria-label, placeholder or name; null when none. */
+  label: string | null;
+}
+
+export interface FormOutline {
+  fields: FormOutlineField[];
+  button: string | null;
 }
 
 const FINGERPRINT_MAX = 200;
+const OUTLINE_MAX_FIELDS = 12;
+const OUTLINE_TEXT_MAX = 40;
+const OUTLINE_TYPE_MAX = 20;
 
 function fingerprintValue(value: string | null | undefined): string | null {
   const trimmed = (value ?? '').trim();
@@ -75,6 +94,57 @@ const SUBMIT_PATTERNS: { pattern: RegExp; type: SubmitTextType; weight: number }
   { pattern: /reset\s?password|forgot/i, type: 'reset', weight: 0.25 },
 ];
 
+/** Page text as the outline carries it: trimmed, capped, never anything that looks like a value. */
+function outlineText(value: string | null | undefined): string | null {
+  const text = (value ?? '').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  const capped = text.length > OUTLINE_TEXT_MAX ? `${text.slice(0, OUTLINE_TEXT_MAX - 1)}…` : text;
+  // Anything that looks like a value, even embedded in a sentence: an email,
+  // or a run of seven or more digits (a phone or card number).
+  if (containsSensitivePattern(text) || EMBEDDED_NUMBER.test(text)) return null;
+  return capped;
+}
+const EMBEDDED_NUMBER = /\d[\d\s().-]{5,}\d/;
+
+/** The visible label of a field: <label for>, an enclosing <label>, aria-label, placeholder, then its name. */
+function fieldLabel(form: HTMLFormElement, el: HTMLElement): string | null {
+  const id = el.getAttribute('id');
+  if (id) {
+    const explicit = form.querySelector(`label[for="${id.replace(/"/g, '\\"')}"]`);
+    const text = outlineText(explicit?.textContent);
+    if (text) return text;
+  }
+  const wrapper = el.closest('label');
+  if (wrapper) {
+    const clone = wrapper.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('input, select, textarea').forEach((n) => n.remove());
+    const text = outlineText(clone.textContent);
+    if (text) return text;
+  }
+  return (
+    outlineText(el.getAttribute('aria-label')) ??
+    outlineText(el.getAttribute('placeholder')) ??
+    outlineText(el.getAttribute('name'))
+  );
+}
+
+function fieldType(el: HTMLElement): string {
+  if (el instanceof HTMLSelectElement) return 'select';
+  if (el instanceof HTMLTextAreaElement) return 'textarea';
+  const type = (el.getAttribute('type') ?? 'text').trim().toLowerCase();
+  return (type || 'text').slice(0, OUTLINE_TYPE_MAX);
+}
+
+/** The form's outline (SDK 1.8.0): up to 12 visible fields with their labels, plus the submit text. */
+export function scanFormOutline(form: HTMLFormElement): FormOutline | null {
+  const fields = getFormFields(form)
+    .slice(0, OUTLINE_MAX_FIELDS)
+    .map((el) => ({ type: fieldType(el), label: fieldLabel(form, el) }));
+  const button = outlineText(getSubmitButtonText(form));
+  if (fields.length === 0 && !button) return null;
+  return { fields, button };
+}
+
 export function scanFormMetadata(form: HTMLFormElement): FormMetadata {
   const fields = getFormFields(form);
   const submitText = getSubmitButtonText(form);
@@ -88,6 +158,7 @@ export function scanFormMetadata(form: HTMLFormElement): FormMetadata {
     has_message_field: fields.some((f) => isMessageField(f)),
     submit_text_type: classifySubmitText(submitText),
     ...formFingerprint(form),
+    outline: scanFormOutline(form),
   };
 }
 

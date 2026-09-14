@@ -35,9 +35,14 @@ describe('payload', () => {
         has_payment_field: false,
         has_message_field: false,
         submit_text_type: 'signup',
+        form_id: null,
+        form_name: null,
+        form_action: null,
+        outline: { fields: [{ type: 'email', label: 'Email' }], button: 'Sign up' },
       },
     );
     expect((payload.form as { has_email_field: boolean }).has_email_field).toBe(true);
+    expect((payload.form as { outline: unknown }).outline).toEqual({ fields: [{ type: 'email', label: 'Email' }], button: 'Sign up' });
   });
 
   it('enforces payload size limit', () => {

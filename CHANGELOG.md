@@ -2,6 +2,17 @@
 
 All notable changes to this package are documented here.
 
+## 1.8.0 - 2026-09-15
+
+### Added
+
+- Form outline: form events carry `form.outline` — up to 12 visible fields as
+  `{ type, label }` (the input type, and its `<label>`, aria-label, placeholder
+  or name) plus the submit button's text — so the dashboard can draw a
+  recognisable mock of each form. Page markup only: values are never read, text
+  is capped at 40 characters, and anything that looks like an email, phone or
+  card number is dropped.
+
 ## 1.7.0 - 2026-09-14
 
 ### Added

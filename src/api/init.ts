@@ -19,6 +19,7 @@ import { isGtmPresent } from '../collectors/gtm';
 import { hasIdentity, resolveIdentity, type IdentifyOptions } from '../core/identify';
 import { trackEvent } from './track';
 import { attachEnforcement, resolveFormEvent } from '../core/enforcement';
+import { requestFormSnapshot } from '../core/snapshot';
 import { debug } from '../utils/logger';
 
 let unloadHandlerAttached = false;
@@ -137,6 +138,13 @@ function setupFormDetection(): void {
         confidence: Math.min(inference.confidence, 0.85),
         detection_method: 'form_visibility',
         formMeta: metadata,
+      }).then((response) => {
+        // Shield has no picture of this form version: this browser takes one
+        // when idle (core/snapshot.ts), once per session.
+        const wanted = response?.form_snapshot;
+        if (wanted?.wanted && wanted.hash && wanted.hash === metadata.outline_hash) {
+          requestFormSnapshot(form, metadata, wanted.hash);
+        }
       });
     }
   });

@@ -1,4 +1,5 @@
 import { containsSensitivePattern, isSensitiveFieldName } from '../utils/safe';
+import { fnv1a } from '../utils/hash';
 import { inferPageEvent, mapViewToAttemptEvent, mapViewToPaymentAttempt } from './url-inference';
 import { getPagePath, getPageTitle } from './page';
 
@@ -28,6 +29,9 @@ export interface FormMetadata {
   // the submit button's text, so the dashboard can draw a recognisable mock.
   // Page markup only, never values; capped and filtered like the fingerprint.
   outline: FormOutline | null;
+  // Change detector for the form's picture (SDK 1.9.0): hash of the outline,
+  // the form's classes and its width bucket. A new hash means a new snapshot.
+  outline_hash: string | null;
 }
 
 export interface FormOutlineField {
@@ -145,9 +149,17 @@ export function scanFormOutline(form: HTMLFormElement): FormOutline | null {
   return { fields, button };
 }
 
+/** The outline hash: what the form looks like, structurally, in 8 hex characters. */
+export function outlineHash(form: HTMLFormElement, outline: FormOutline | null): string | null {
+  if (!outline) return null;
+  const width = typeof form.getBoundingClientRect === 'function' ? Math.round((form.getBoundingClientRect().width || 0) / 50) : 0;
+  return fnv1a(`${JSON.stringify(outline)}|${form.className}|${width}`);
+}
+
 export function scanFormMetadata(form: HTMLFormElement): FormMetadata {
   const fields = getFormFields(form);
   const submitText = getSubmitButtonText(form);
+  const outline = scanFormOutline(form);
 
   return {
     field_count: fields.length,
@@ -158,7 +170,8 @@ export function scanFormMetadata(form: HTMLFormElement): FormMetadata {
     has_message_field: fields.some((f) => isMessageField(f)),
     submit_text_type: classifySubmitText(submitText),
     ...formFingerprint(form),
-    outline: scanFormOutline(form),
+    outline,
+    outline_hash: outlineHash(form, outline),
   };
 }
 

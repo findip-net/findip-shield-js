@@ -18,6 +18,9 @@ All notable changes to this package are documented here.
   no longer drawn on white) and at twice its CSS size, so it is crisp on
   high-density screens; it drops to 1× when the larger picture would not fit
   the 200 KB cap.
+- `form.outline_hash` now also covers the snapshot format, so Shield asks for
+  a fresh picture of every form once after this upgrade instead of keeping
+  the old one for up to 30 days.
 
 ## 1.9.0 - 2026-09-15
 

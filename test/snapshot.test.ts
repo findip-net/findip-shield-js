@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { init } from '../src/api/init';
-import { outlineHash, scanFormMetadata, scanFormOutline } from '../src/collectors/forms';
+import { SNAPSHOT_FORMAT, outlineHash, scanFormMetadata, scanFormOutline } from '../src/collectors/forms';
 import {
   alreadyAttempted,
   backgroundBehind,
@@ -63,6 +63,14 @@ describe('outline hash', () => {
     document.querySelector('label[for="em"]')!.textContent = 'Email address';
     expect(outlineHash(form, scanFormOutline(form))).not.toBe(hash);
     expect(outlineHash(form, null)).toBeNull();
+  });
+
+  it('changes with the snapshot format, so every form is photographed again after an upgrade', () => {
+    const form = page();
+    const outline = scanFormOutline(form);
+    const width = Math.round((form.getBoundingClientRect().width || 0) / 50);
+    expect(outlineHash(form, outline)).toBe(fnv1a(`${SNAPSHOT_FORMAT}|${JSON.stringify(outline)}|${form.className}|${width}`));
+    expect(outlineHash(form, outline)).not.toBe(fnv1a(`${JSON.stringify(outline)}|${form.className}|${width}`));
   });
 });
 

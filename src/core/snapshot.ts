@@ -21,6 +21,8 @@ import { debug } from '../utils/logger';
 export const SNAPSHOT_MAX_BYTES = 200_000;
 const MAX_WIDTH = 900;
 const MAX_HEIGHT = 1200;
+/** Rendered at twice the CSS size so the picture is crisp on high-density screens; halved when it would not fit the cap. */
+export const RENDER_SCALE = 2;
 const ATTEMPTED_KEY = '_fip_snap';
 const RENDERER_TIMEOUT_MS = 10_000;
 const TRANSPARENT_PIXEL =
@@ -82,10 +84,69 @@ function markAttempted(hash: string): void {
 }
 
 const VALUE_FREE_INPUT_TYPES = new Set(['submit', 'button', 'reset', 'hidden', 'image']);
-const STRIPPED = 'iframe, video, audio, canvas, object, embed, script, noscript, picture source';
+/** Embedded content the renderer cannot draw: replaced by a blank box of the same size (a captcha widget, a video). */
+const EMBEDS = 'iframe, video, audio, canvas, object, embed';
+const REMOVED = 'script, noscript, picture source';
+/** Embeds smaller than this (hidden frames) just go. */
+const PLACEHOLDER_MIN_PX = 8;
+/**
+ * The ancestor shells exist only so the page's descendant selectors still
+ * match the form; their own layout (grid columns, card padding, flex
+ * centring, fixed modals) must not squeeze or move it.
+ */
+const NEUTRAL_LAYOUT: Record<string, string> = {
+  display: 'block',
+  position: 'static',
+  float: 'none',
+  transform: 'none',
+  width: 'auto',
+  'min-width': '0',
+  'max-width': 'none',
+  height: 'auto',
+  'min-height': '0',
+  'max-height': 'none',
+  margin: '0',
+  padding: '0',
+  border: '0',
+  inset: 'auto',
+  overflow: 'visible',
+  opacity: '1',
+  visibility: 'visible',
+  animation: 'none',
+  transition: 'none',
+  columns: 'auto',
+};
+/** The form itself fills the mount at its rendered width, whatever its CSS says about margins or positioning. */
+const FORM_LAYOUT: Record<string, string> = {
+  'box-sizing': 'border-box',
+  'min-width': '0',
+  'max-width': 'none',
+  margin: '0',
+  position: 'static',
+  float: 'none',
+  transform: 'none',
+};
 
-/** Blanks every value and strips embedded media from a cloned form. */
-export function sanitizeClone(node: HTMLElement): void {
+function setImportant(el: HTMLElement, styles: Record<string, string>): void {
+  for (const [property, value] of Object.entries(styles)) el.style.setProperty(property, value, 'important');
+}
+
+function placeholderFor(rect: DOMRect): HTMLElement {
+  const box = document.createElement('div');
+  box.setAttribute('aria-hidden', 'true');
+  box.style.cssText =
+    `display:inline-block;box-sizing:border-box;width:${Math.round(rect.width)}px;height:${Math.round(rect.height)}px;` +
+    'background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;vertical-align:top;';
+  return box;
+}
+
+/**
+ * Blanks every value and strips embedded media from a cloned form. Given the
+ * live form, every stripped embed leaves a blank box of its rendered size so
+ * the layout stays true (a captcha widget keeps its place instead of leaving
+ * a hole).
+ */
+export function sanitizeClone(node: HTMLElement, live?: HTMLElement): void {
   node.querySelectorAll('input').forEach((input) => {
     const type = (input.getAttribute('type') ?? 'text').toLowerCase();
     if (type === 'checkbox' || type === 'radio') {
@@ -117,22 +178,45 @@ export function sanitizeClone(node: HTMLElement): void {
     img.removeAttribute('srcset');
     img.removeAttribute('alt');
   });
-  node.querySelectorAll(STRIPPED).forEach((el) => el.remove());
+  const liveEmbeds = live ? Array.from(live.querySelectorAll(EMBEDS)) : [];
+  node.querySelectorAll(EMBEDS).forEach((el, i) => {
+    const rect = liveEmbeds[i]?.getBoundingClientRect();
+    if (rect && rect.width >= PLACEHOLDER_MIN_PX && rect.height >= PLACEHOLDER_MIN_PX) el.replaceWith(placeholderFor(rect));
+    else el.remove();
+  });
+  node.querySelectorAll(REMOVED).forEach((el) => el.remove());
+}
+
+/** The page's colour behind the form: the nearest background that is not transparent, white when there is none. */
+export function backgroundBehind(form: HTMLElement): string {
+  for (let el: HTMLElement | null = form; el; el = el.parentElement) {
+    const color = getComputedStyle(el).backgroundColor;
+    if (!color || color === 'transparent') continue;
+    const m = /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/.exec(color);
+    if (!m) return color;
+    if (m[4] === undefined || parseFloat(m[4]) > 0) return `rgb(${m[1]}, ${m[2]}, ${m[3]})`;
+  }
+  return '#ffffff';
 }
 
 /**
  * The form cloned and sanitised, wrapped in shallow clones of its ancestors
- * (so descendant CSS selectors still match), mounted off-screen at the
- * form's own width. Caller removes `container` when done.
+ * (so descendant CSS selectors still match) whose own layout is neutralised,
+ * mounted off-screen at the form's own rendered width. Caller removes
+ * `container` when done.
  */
 export function mountSanitizedClone(form: HTMLFormElement): { container: HTMLElement; node: HTMLElement; width: number } {
   const width = Math.max(1, Math.min(MAX_WIDTH * 2, Math.round(form.getBoundingClientRect().width) || 600));
   const node = form.cloneNode(true) as HTMLElement;
-  sanitizeClone(node);
+  sanitizeClone(node, form);
+  setImportant(node, { ...FORM_LAYOUT, width: `${width}px` });
+  const display = getComputedStyle(form).display;
+  if (display === 'inline' || display === 'contents' || display === 'none') node.style.setProperty('display', 'block', 'important');
   let wrapper: HTMLElement = node;
   let ancestor = form.parentElement;
   while (ancestor && ancestor !== document.body && ancestor !== document.documentElement) {
     const shell = ancestor.cloneNode(false) as HTMLElement;
+    setImportant(shell, NEUTRAL_LAYOUT);
     shell.appendChild(wrapper);
     wrapper = shell;
     ancestor = ancestor.parentElement;
@@ -182,6 +266,25 @@ export function encodeCanvas(canvas: HTMLCanvasElement): string | null {
   return null;
 }
 
+/** Half-size copy of a canvas, for when the full one does not fit the cap. */
+function halve(canvas: HTMLCanvasElement): HTMLCanvasElement | null {
+  const small = document.createElement('canvas');
+  small.width = Math.max(1, Math.round(canvas.width / 2));
+  small.height = Math.max(1, Math.round(canvas.height / 2));
+  const context = small.getContext('2d');
+  if (!context) return null;
+  context.drawImage(canvas, 0, 0, small.width, small.height);
+  return small;
+}
+
+/** Encodes the canvas within the cap: at full size, or at half size when the full one is too big. */
+export function encodeSnapshot(canvas: HTMLCanvasElement): string | null {
+  const full = encodeCanvas(canvas);
+  if (full) return full;
+  const small = halve(canvas);
+  return small ? encodeCanvas(small) : null;
+}
+
 /** Takes and uploads the snapshot; resolves true when Shield stored it. */
 export async function captureFormSnapshot(
   form: HTMLFormElement,
@@ -209,13 +312,13 @@ export async function captureFormSnapshot(
     const canvas = await renderer.toCanvas(mounted.node, {
       width: mounted.width,
       height: Math.min(fullHeight, Math.round(MAX_HEIGHT / scale)),
-      pixelRatio: scale,
-      backgroundColor: '#ffffff',
+      pixelRatio: scale * RENDER_SCALE,
+      backgroundColor: backgroundBehind(form),
       skipFonts: true,
       cacheBust: false,
       includeQueryParams: false,
     });
-    image = encodeCanvas(canvas);
+    image = encodeSnapshot(canvas);
   } catch (err) {
     debug('form snapshot failed', err);
     return false;

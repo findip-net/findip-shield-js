@@ -2,6 +2,26 @@
 
 All notable changes to this package are documented here.
 
+## 1.9.1 - 2026-09-15
+
+### Fixed
+
+- Form snapshots looked squeezed: the ancestor shells around the sanitised
+  clone kept their own layout (grid columns, card padding, flex centring), so a
+  form that is 400 px wide on the page came out about 70 px wide, with
+  truncated placeholders and wrapped labels. The shells are now layout-neutral
+  (they only keep the page's CSS selectors matching) and the form is pinned to
+  its rendered width.
+- A stripped embed (a captcha widget, a video) no longer leaves a hole: it is
+  replaced by a blank box of the same size.
+- The picture is rendered on the page's real background colour (dark forms are
+  no longer drawn on white) and at twice its CSS size, so it is crisp on
+  high-density screens; it drops to 1× when the larger picture would not fit
+  the 200 KB cap.
+- `form.outline_hash` now also covers the snapshot format, so Shield asks for
+  a fresh picture of every form once after this upgrade instead of keeping
+  the old one for up to 30 days.
+
 ## 1.9.0 - 2026-09-15
 
 ### Added

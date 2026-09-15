@@ -149,11 +149,18 @@ export function scanFormOutline(form: HTMLFormElement): FormOutline | null {
   return { fields, button };
 }
 
+/**
+ * How snapshots are rendered; bumped when the picture changes for the same
+ * form (a new hash makes Shield ask for a fresh picture of every form once).
+ * 2 = 1.9.1: layout-neutral ancestors, embed placeholders, page background, 2×.
+ */
+export const SNAPSHOT_FORMAT = 2;
+
 /** The outline hash: what the form looks like, structurally, in 8 hex characters. */
 export function outlineHash(form: HTMLFormElement, outline: FormOutline | null): string | null {
   if (!outline) return null;
   const width = typeof form.getBoundingClientRect === 'function' ? Math.round((form.getBoundingClientRect().width || 0) / 50) : 0;
-  return fnv1a(`${JSON.stringify(outline)}|${form.className}|${width}`);
+  return fnv1a(`${SNAPSHOT_FORMAT}|${JSON.stringify(outline)}|${form.className}|${width}`);
 }
 
 export function scanFormMetadata(form: HTMLFormElement): FormMetadata {

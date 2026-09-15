@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { init } from '../src/api/init';
-import { outlineHash, scanFormMetadata, scanFormOutline } from '../src/collectors/forms';
+import { SNAPSHOT_FORMAT, outlineHash, scanFormMetadata, scanFormOutline } from '../src/collectors/forms';
 import {
   alreadyAttempted,
+  backgroundBehind,
   captureFormSnapshot,
   encodeCanvas,
+  encodeSnapshot,
   mountSanitizedClone,
   requestFormSnapshot,
   resetSnapshotState,
@@ -62,6 +64,14 @@ describe('outline hash', () => {
     expect(outlineHash(form, scanFormOutline(form))).not.toBe(hash);
     expect(outlineHash(form, null)).toBeNull();
   });
+
+  it('changes with the snapshot format, so every form is photographed again after an upgrade', () => {
+    const form = page();
+    const outline = scanFormOutline(form);
+    const width = Math.round((form.getBoundingClientRect().width || 0) / 50);
+    expect(outlineHash(form, outline)).toBe(fnv1a(`${SNAPSHOT_FORMAT}|${JSON.stringify(outline)}|${form.className}|${width}`));
+    expect(outlineHash(form, outline)).not.toBe(fnv1a(`${JSON.stringify(outline)}|${form.className}|${width}`));
+  });
 });
 
 describe('sanitised clone', () => {
@@ -82,15 +92,51 @@ describe('sanitised clone', () => {
     expect((form.querySelector('input[name=email]') as HTMLInputElement).value).toBe('jane@example.com');
   });
 
-  it('mounts the clone off-screen inside shallow copies of its ancestors', () => {
+  it('leaves a same-size blank box where an embed was, given the live form', () => {
     const form = page();
-    const { container, node } = mountSanitizedClone(form);
+    const iframe = form.querySelector('iframe')!;
+    vi.spyOn(iframe, 'getBoundingClientRect').mockReturnValue({ width: 304, height: 78 } as DOMRect);
+    form.insertAdjacentHTML('beforeend', '<iframe src="https://x.test/hidden" width="0" height="0"></iframe>');
+    const clone = form.cloneNode(true) as HTMLElement;
+    sanitizeClone(clone, form);
+    expect(clone.querySelector('iframe')).toBeNull();
+    const boxes = Array.from(clone.querySelectorAll('div[aria-hidden]')) as HTMLElement[];
+    expect(boxes).toHaveLength(1);
+    expect(boxes[0].style.width).toBe('304px');
+    expect(boxes[0].style.height).toBe('78px');
+    expect(clone.outerHTML).not.toContain('x.test');
+  });
+
+  it('mounts the clone off-screen inside shallow, layout-neutral copies of its ancestors, at its own width', () => {
+    const form = page();
+    vi.spyOn(form, 'getBoundingClientRect').mockReturnValue({ width: 387.4, height: 480 } as DOMRect);
+    const { container, node, width } = mountSanitizedClone(form);
     expect(container.isConnected).toBe(true);
     expect(container.style.left).toBe('-100000px');
-    expect(node.closest('section#join-box.card')).not.toBeNull();
+    expect(width).toBe(387);
+    expect(node.style.getPropertyValue('width')).toBe('387px');
+    expect(node.style.getPropertyPriority('width')).toBe('important');
+    expect(node.style.getPropertyValue('box-sizing')).toBe('border-box');
+    const shell = node.closest('section#join-box.card') as HTMLElement;
+    expect(shell).not.toBeNull();
+    expect(shell.style.getPropertyValue('display')).toBe('block');
+    expect(shell.style.getPropertyValue('padding')).toMatch(/^0(px)?$/);
+    expect(shell.style.getPropertyValue('width')).toBe('auto');
+    expect(shell.style.getPropertyPriority('display')).toBe('important');
     expect(node.closest('main.shell')).not.toBeNull();
     expect(node.closest('main.shell')!.children).toHaveLength(1);
     container.remove();
+  });
+
+  it('finds the page colour behind the form', () => {
+    const form = page();
+    expect(backgroundBehind(form)).toBe('#ffffff');
+    (form.closest('main') as HTMLElement).style.backgroundColor = 'rgb(30, 30, 30)';
+    expect(backgroundBehind(form)).toBe('rgb(30, 30, 30)');
+    (form.closest('section') as HTMLElement).style.backgroundColor = 'rgba(0, 0, 0, 0)';
+    expect(backgroundBehind(form)).toBe('rgb(30, 30, 30)');
+    (form.closest('section') as HTMLElement).style.backgroundColor = 'rgb(250, 250, 250)';
+    expect(backgroundBehind(form)).toBe('rgb(250, 250, 250)');
   });
 });
 
@@ -116,6 +162,17 @@ describe('when a picture may be taken', () => {
     expect(encodeCanvas(canvas({ 'image/jpeg': 'data:image/jpeg;base64,/9j/4AAQ' }))).toBe('data:image/jpeg;base64,/9j/4AAQ');
     expect(encodeCanvas(canvas({ 'image/webp': `data:image/webp;base64,${'A'.repeat(400_000)}`, 'image/jpeg': `data:image/jpeg;base64,${'A'.repeat(400_000)}` }))).toBeNull();
   });
+
+  it('falls back to a half-size picture when the full one is over the cap', () => {
+    const drawImage = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(WEBP);
+    const big = { width: 1800, height: 2400, toDataURL: () => `data:image/webp;base64,${'A'.repeat(400_000)}` } as unknown as HTMLCanvasElement;
+    expect(encodeSnapshot(big)).toBe(WEBP);
+    expect(drawImage).toHaveBeenCalledWith(big, 0, 0, 900, 1200);
+    const fits = { toDataURL: () => WEBP } as unknown as HTMLCanvasElement;
+    expect(encodeSnapshot(fits)).toBe(WEBP);
+  });
 });
 
 describe('capture and upload', () => {
@@ -124,9 +181,11 @@ describe('capture and upload', () => {
     vi.stubGlobal('fetch', fetch);
     init({ siteKey: 'pub_test', autoTrack: false, autoDetectForms: false, endpoint: 'https://shield.test/v1/shield/track' });
     const rendered: HTMLElement[] = [];
+    const options: Record<string, unknown>[] = [];
     (window as { htmlToImage?: unknown }).htmlToImage = {
-      toCanvas: (node: HTMLElement) => {
+      toCanvas: (node: HTMLElement, opts: Record<string, unknown>) => {
         rendered.push(node);
+        options.push(opts);
         expect(node.isConnected).toBe(true);
         expect(node.outerHTML).not.toContain('hunter2');
         return Promise.resolve({ toDataURL: () => WEBP } as unknown as HTMLCanvasElement);
@@ -137,6 +196,7 @@ describe('capture and upload', () => {
     expect(await captureFormSnapshot(form, meta, meta.outline_hash!)).toBe(true);
     expect(rendered).toHaveLength(1);
     expect(rendered[0].isConnected).toBe(false);
+    expect(options[0]).toMatchObject({ width: 600, pixelRatio: 2, backgroundColor: '#ffffff', skipFonts: true });
     const call = fetch.mock.calls.find((c) => String(c[0]).endsWith('/v1/shield/snapshot'))!;
     expect(call).toBeDefined();
     const body = JSON.parse((call[1] as RequestInit).body as string);

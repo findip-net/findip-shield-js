@@ -21,6 +21,8 @@ export interface TrackResponse {
   };
   /** Present when the site has in-page enforcement switched on. */
   enforcement?: unknown;
+  /** Shield wants a picture of the form this event reported (SDK 1.9.0, core/snapshot.ts). */
+  form_snapshot?: { wanted?: boolean; hash?: string };
   ip?: {
     country?: string;
     asn?: number;

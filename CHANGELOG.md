@@ -2,6 +2,21 @@
 
 All notable changes to this package are documented here.
 
+## 1.9.0 - 2026-09-15
+
+### Added
+
+- Form snapshots: when a /track response for a form view says
+  `form_snapshot.wanted`, this browser takes a picture of the form once idle
+  and posts it to `/v1/shield/snapshot`, so the dashboard can show a real
+  preview. What is rendered is a sanitised clone — every value blanked,
+  images and embeds stripped — never the live form; the renderer
+  (html-to-image, from the FindIP CDN) loads only when a picture is wanted;
+  one attempt per form version per session; skipped in strict privacy mode,
+  on data-saver connections and in hidden tabs. Opt out with
+  `captureFormSnapshots: false`. Form events also carry `form.outline_hash`,
+  the change detector that tells Shield when a form needs a new picture.
+
 ## 1.8.0 - 2026-09-15
 
 ### Added

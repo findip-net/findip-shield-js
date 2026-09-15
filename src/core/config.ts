@@ -35,6 +35,14 @@ export interface FindIPConfig {
    */
   identityKey?: string | null;
   endpoint?: string;
+  /**
+   * Let Shield ask this browser for a picture of a form it has not seen yet
+   * (a sanitised clone, values blanked; see core/snapshot.ts). Default true;
+   * never in strict privacy mode.
+   */
+  captureFormSnapshots?: boolean;
+  /** Where the DOM-to-canvas renderer is loaded from, only when a picture is wanted. */
+  snapshotRendererUrl?: string;
   debug?: boolean;
   maxPayloadBytes?: number;
   sessionCookieDurationMinutes?: number;
@@ -72,6 +80,11 @@ export const DEFAULT_ENDPOINT = 'https://shield.findip.net/v1/shield/track';
 export function identityKeyEndpoint(trackEndpoint: string): string {
   return trackEndpoint.replace(/\/track\/?$/, '/identity-key');
 }
+/** The form snapshot upload endpoint lives next to the track endpoint. */
+export function snapshotEndpoint(trackEndpoint: string): string {
+  return trackEndpoint.replace(/\/track\/?$/, '/snapshot');
+}
+export const DEFAULT_SNAPSHOT_RENDERER_URL = 'https://cdn.findip.net/shield/vendor/html-to-image-1.11.13.min.js';
 export const DEFAULT_MAX_PAYLOAD_BYTES = 32_768;
 export const SESSION_COOKIE_NAME = '_fip_sid';
 export const SESSION_STARTED_COOKIE_NAME = '_fip_ss';
@@ -146,6 +159,8 @@ export function resolveConfig(partial: FindIPConfig): ResolvedConfig {
     identify: partial.identify ?? null,
     identityKey: partial.identityKey ?? null,
     endpoint: partial.endpoint ?? DEFAULT_ENDPOINT,
+    captureFormSnapshots: partial.captureFormSnapshots ?? true,
+    snapshotRendererUrl: partial.snapshotRendererUrl ?? DEFAULT_SNAPSHOT_RENDERER_URL,
     debug: partial.debug ?? false,
     maxPayloadBytes: partial.maxPayloadBytes ?? DEFAULT_MAX_PAYLOAD_BYTES,
     sessionCookieDurationMinutes: partial.sessionCookieDurationMinutes ?? 30,

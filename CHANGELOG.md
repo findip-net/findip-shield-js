@@ -2,6 +2,24 @@
 
 All notable changes to this package are documented here.
 
+## 1.10.0 - 2026-09-16
+
+### Changed
+
+- The visitor-facing notice (stop message, slow-down countdown, Turnstile
+  challenge) is now a small dialog floating over the page, centred, on a
+  dimmed backdrop, instead of an element appended inside the form. Forms in
+  a footer, a collapsed panel or below the fold no longer hide the message.
+  The card keeps the `findip-shield-notice` class (styles are injected as a
+  class stylesheet, so a site's own CSS overrides them without `!important`);
+  the backdrop is `findip-shield-notice-backdrop`, the text
+  `findip-shield-notice-text`, the Turnstile holder `findip-shield-notice-widget`.
+- The dialog takes focus when it opens (`role="alertdialog"`, `aria-modal`)
+  and gives it back when it closes. A stop message has a Close button and
+  closes on Escape or a click outside; a countdown and a challenge cannot be
+  dismissed (the countdown submits the form when it ends, the challenge when
+  it is passed).
+
 ## 1.9.1 - 2026-09-15
 
 ### Fixed

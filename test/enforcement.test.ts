@@ -143,7 +143,7 @@ describe('stop', () => {
     const form = signupForm();
     const event = submit(form);
     expect(event.defaultPrevented).toBe(true);
-    const notice = form.querySelector('.findip-shield-notice');
+    const notice = document.querySelector('.findip-shield-notice');
     expect(notice?.textContent).toBe('Blocked by test.');
 
     await vi.waitFor(() => expect(responses(fetchMock).length).toBe(2));
@@ -162,16 +162,16 @@ describe('slow', () => {
     form.addEventListener('submit', (e) => resubmits.push(e.defaultPrevented));
 
     expect(submit(form).defaultPrevented).toBe(true);
-    expect(form.querySelector('.findip-shield-notice')?.textContent).toMatch(/wait 2 seconds/);
+    expect(document.querySelector('.findip-shield-notice')?.textContent).toMatch(/wait 2 seconds/);
     vi.advanceTimersByTime(1000);
-    expect(form.querySelector('.findip-shield-notice')?.textContent).toMatch(
+    expect(document.querySelector('.findip-shield-notice')?.textContent).toMatch(
       /wait 1 seconds before/,
     );
     vi.advanceTimersByTime(1000);
     // only the re-submit reached the form's own listener (the first was
     // stopped in the capture phase) and it passed through unprevented
     expect(resubmits).toEqual([false]);
-    expect(form.querySelector('.findip-shield-notice')).toBeNull();
+    expect(document.querySelector('.findip-shield-notice')).toBeNull();
     vi.useRealTimers();
 
     await vi.waitFor(() => expect(responses(fetchMock).length).toBeGreaterThanOrEqual(2));
@@ -216,7 +216,7 @@ describe('challenge', () => {
     await boot('challenge', { ...CONFIG, turnstile_site_key: null });
     const form = signupForm();
     expect(submit(form).defaultPrevented).toBe(true);
-    expect(form.querySelector('.findip-shield-notice')?.textContent).toMatch(/Please wait/);
+    expect(document.querySelector('.findip-shield-notice')?.textContent).toMatch(/Please wait/);
   });
 });
 
@@ -426,7 +426,7 @@ describe('apply switches and rule overrides', () => {
     });
     const form = signupForm();
     expect(submit(form).defaultPrevented).toBe(true);
-    expect(form.querySelector('.findip-shield-notice')?.textContent).toMatch(/wait 2 seconds/);
+    expect(document.querySelector('.findip-shield-notice')?.textContent).toMatch(/wait 2 seconds/);
     vi.useRealTimers();
 
     await boot('challenge', CONFIG, {
@@ -435,7 +435,7 @@ describe('apply switches and rule overrides', () => {
     });
     const form2 = signupForm();
     expect(submit(form2).defaultPrevented).toBe(true);
-    expect(form2.querySelector('.findip-shield-notice')?.textContent).toBe('Rule says no.');
+    expect(document.querySelector('.findip-shield-notice')?.textContent).toBe('Rule says no.');
 
     await boot('block', CONFIG, { name: 'off', in_page: { action: 'none' } });
     expect(submit(signupForm()).defaultPrevented).toBe(false);
@@ -466,9 +466,9 @@ describe('custom challenge and slow-down text', () => {
     await boot('monitor', { ...CONFIG, slow_down_message: 'Hold on {seconds}s…' });
     const form = signupForm();
     submit(form);
-    expect(form.querySelector('.findip-shield-notice')?.textContent).toBe('Hold on 2s…');
+    expect(document.querySelector('.findip-shield-notice')?.textContent).toBe('Hold on 2s…');
     vi.advanceTimersByTime(1000);
-    expect(form.querySelector('.findip-shield-notice')?.textContent).toBe('Hold on 1s…');
+    expect(document.querySelector('.findip-shield-notice')?.textContent).toBe('Hold on 1s…');
     vi.useRealTimers();
 
     await boot(
@@ -483,9 +483,45 @@ describe('custom challenge and slow-down text', () => {
     const form2 = signupForm();
     submit(form2);
     await vi.waitFor(() =>
-      expect(form2.querySelector('.findip-shield-notice')?.firstChild?.textContent).toBe(
+      expect(document.querySelector('.findip-shield-notice')?.firstChild?.textContent).toBe(
         'Rule: quick check please.',
       ),
     );
+  });
+});
+
+describe('floating notice', () => {
+  it('floats over the page instead of sitting inside the form, and a stop can be dismissed', async () => {
+    await boot('block');
+    const form = signupForm();
+    const button = form.querySelector('button')!;
+    button.focus();
+    submit(form);
+    const notice = document.querySelector<HTMLElement>('.findip-shield-notice')!;
+    expect(form.contains(notice)).toBe(false);
+    expect(notice.closest('.findip-shield-notice-backdrop')?.parentElement).toBe(document.body);
+    expect(notice.getAttribute('role')).toBe('alertdialog');
+    expect(document.activeElement).toBe(notice);
+    expect(notice.textContent).toBe('Blocked by test.');
+    const close = notice.querySelector<HTMLButtonElement>('.findip-shield-notice-close')!;
+    expect(close.getAttribute('aria-label')).toBe('Close');
+    close.click();
+    expect(document.querySelector('.findip-shield-notice')).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('closes a stop on Escape and never offers to dismiss a countdown', async () => {
+    await boot('block');
+    const form = signupForm();
+    submit(form);
+    const notice = document.querySelector<HTMLElement>('.findip-shield-notice')!;
+    notice.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(document.querySelector('.findip-shield-notice')).toBeNull();
+
+    vi.useFakeTimers();
+    await boot('monitor');
+    submit(signupForm());
+    expect(document.querySelector('.findip-shield-notice-close')).toBeNull();
+    vi.useRealTimers();
   });
 });

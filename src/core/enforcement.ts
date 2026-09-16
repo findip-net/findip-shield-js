@@ -455,14 +455,14 @@ function onSubmit(event: Event): void {
   );
   switch (action) {
     case 'stop':
-      showNotice(form, message);
+      showNotice(form, message, { dismissible: true });
       report('blocked');
       return;
     case 'redirect':
       if (redirectUrl) {
         redirect(redirectUrl, () => report('redirected', true));
       } else {
-        showNotice(form, message);
+        showNotice(form, message, { dismissible: true });
         report('blocked');
       }
       return;
@@ -496,11 +496,11 @@ function slowDown(
   const timer = setInterval(() => {
     remaining -= 1;
     if (remaining > 0) {
-      notice.textContent = countdownText(template, remaining);
+      setNoticeText(notice, countdownText(template, remaining));
       return;
     }
     clearInterval(timer);
-    notice.remove();
+    removeNotice(form);
     pending.delete(form);
     resubmit(form);
   }, 1000);
@@ -533,20 +533,20 @@ function challenge(
   const finish = (passed: boolean) => {
     if (passed) {
       rememberChallengePassed();
-      notice.remove();
+      removeNotice(form);
       pending.delete(form);
       report('passed');
       resubmit(form);
     } else {
       report('failed');
-      notice.firstChild!.textContent = 'Verification failed. Please try again.';
+      setNoticeText(notice, 'Verification failed. Please try again.');
     }
   };
 
   void loadTurnstile().then((turnstile) => {
     if (!turnstile) {
       // Turnstile could not load: fail open.
-      notice.remove();
+      removeNotice(form);
       pending.delete(form);
       resubmit(form);
       return;
@@ -621,17 +621,93 @@ function resubmit(form: HTMLFormElement): void {
   }
 }
 
-function showNotice(form: HTMLFormElement, text: string): HTMLElement {
-  let notice = form.querySelector<HTMLElement>(`.${NOTICE_CLASS}`);
-  if (!notice) {
-    notice = document.createElement('div');
-    notice.className = NOTICE_CLASS;
-    notice.setAttribute('role', 'alert');
-    notice.style.cssText =
-      'margin:8px 0;padding:10px 12px;border-radius:6px;background:#fff7ed;color:#7c2d12;border:1px solid #fdba74;font:inherit;font-size:14px;line-height:1.4;';
-    form.appendChild(notice);
+/**
+ * The visitor-facing notice: a small dialog floating over the page, centred,
+ * with a dimmed backdrop, so it is seen wherever the form sits (in a footer,
+ * a collapsed panel or below the fold). One per form; the card keeps the
+ * `findip-shield-notice` class so a site's own CSS still applies.
+ */
+const notices = new WeakMap<HTMLFormElement, HTMLElement>();
+const NOTICE_STYLE_ID = `${NOTICE_CLASS}-style`;
+const NOTICE_CSS = [
+  `.${NOTICE_CLASS}-backdrop{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.45);box-sizing:border-box}`,
+  `.${NOTICE_CLASS}{position:relative;width:100%;max-width:420px;padding:22px 40px;border-radius:12px;background:#fff;color:#1e293b;border:1px solid #e2e8f0;box-shadow:0 20px 50px rgba(15,23,42,.3);font:inherit;font-size:15px;line-height:1.5;text-align:center;box-sizing:border-box;outline:none}`,
+  `.${NOTICE_CLASS}-text{display:block;white-space:pre-line;word-wrap:break-word}`,
+  `.${NOTICE_CLASS}-widget{display:flex;justify-content:center;margin-top:14px;min-height:65px}`,
+  `.${NOTICE_CLASS}-close{position:absolute;top:8px;right:8px;width:32px;height:32px;padding:0;border:0;border-radius:8px;background:transparent;color:#64748b;font:inherit;font-size:22px;line-height:32px;cursor:pointer}`,
+  `.${NOTICE_CLASS}-close::before{content:"\\00d7"}`,
+  `.${NOTICE_CLASS}-close:hover,.${NOTICE_CLASS}-close:focus{background:#f1f5f9;color:#0f172a;outline:none}`,
+].join('');
+
+function ensureNoticeStyles(): void {
+  if (document.getElementById(NOTICE_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = NOTICE_STYLE_ID;
+  style.textContent = NOTICE_CSS;
+  (document.head || document.documentElement).appendChild(style);
+}
+
+function noticeText(notice: HTMLElement): HTMLElement {
+  return notice.querySelector<HTMLElement>(`.${NOTICE_CLASS}-text`) ?? notice;
+}
+
+function setNoticeText(notice: HTMLElement, text: string): void {
+  noticeText(notice).textContent = text;
+}
+
+function removeNotice(form: HTMLFormElement): void {
+  const backdrop = notices.get(form);
+  if (!backdrop) return;
+  notices.delete(form);
+  const restore = (backdrop as HTMLElement & { _fipFocus?: Element | null })._fipFocus;
+  backdrop.remove();
+  if (restore instanceof HTMLElement && restore.isConnected) restore.focus();
+}
+
+function showNotice(
+  form: HTMLFormElement,
+  text: string,
+  options: { dismissible?: boolean } = {},
+): HTMLElement {
+  ensureNoticeStyles();
+  let backdrop = notices.get(form);
+  if (backdrop && !backdrop.isConnected) {
+    notices.delete(form);
+    backdrop = undefined;
   }
-  const textNode = document.createTextNode(text);
-  notice.replaceChildren(textNode);
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.className = `${NOTICE_CLASS}-backdrop`;
+    const notice = document.createElement('div');
+    notice.className = NOTICE_CLASS;
+    notice.setAttribute('role', 'alertdialog');
+    notice.setAttribute('aria-modal', 'true');
+    notice.setAttribute('aria-live', 'assertive');
+    notice.tabIndex = -1;
+    const span = document.createElement('span');
+    span.className = `${NOTICE_CLASS}-text`;
+    notice.appendChild(span);
+    if (options.dismissible) {
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = `${NOTICE_CLASS}-close`;
+      close.setAttribute('aria-label', 'Close');
+      close.addEventListener('click', () => removeNotice(form));
+      notice.appendChild(close);
+      backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) removeNotice(form);
+      });
+      notice.addEventListener('keydown', (e) => {
+        if ((e as KeyboardEvent).key === 'Escape') removeNotice(form);
+      });
+    }
+    backdrop.appendChild(notice);
+    (backdrop as HTMLElement & { _fipFocus?: Element | null })._fipFocus = document.activeElement;
+    document.body.appendChild(backdrop);
+    notices.set(form, backdrop);
+    notice.focus({ preventScroll: true });
+  }
+  const notice = backdrop.querySelector<HTMLElement>(`.${NOTICE_CLASS}`)!;
+  setNoticeText(notice, text);
   return notice;
 }

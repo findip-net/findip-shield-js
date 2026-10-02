@@ -10,9 +10,16 @@ Published on npm as [`@findip/shield`](https://www.npmjs.com/package/@findip/shi
 
 ## See Shield in action
 
-[![Watch the 22-second FindIP Shield overview](https://www.findip.net/assets/videos/shield-signup-flowchart-poster.webp)](https://www.findip.net/assets/videos/shield-signup-flowchart.mp4)
+[![A sample sign-up arrives through a VPN. FindIP Shield shows the reasons behind its risk score, follows the session across networks, and records what the page did](https://raw.githubusercontent.com/findip-net/findip-shield-js/main/.github/media/shield-signup-insight-teaser.gif)](https://www.findip.net/assets/videos/shield-signup-insight.mp4)
 
-[Watch the 22-second overview video](https://www.findip.net/assets/videos/shield-signup-flowchart.mp4) or [explore FindIP Shield](https://www.findip.net/shield/overview).
+▶ **[Watch with sound (0:30)](https://www.findip.net/assets/videos/shield-signup-insight.mp4)** · [Try the interactive demo](https://www.findip.net/shield/demo?utm_source=sdk_readme&utm_medium=readme&utm_campaign=shield_clips&utm_content=findip-shield-js) · [Explore FindIP Shield](https://www.findip.net/shield/overview?utm_source=sdk_readme&utm_medium=readme&utm_campaign=shield_clips&utm_content=findip-shield-js)
+
+The clip uses sample data, and its captions are on screen. Three more short clips:
+
+| Add Shield with a website snippet | Choose what happens on a form | Connect through Cloudflare |
+| :---: | :---: | :---: |
+| [![Play: Add Shield with a website snippet (0:34)](https://raw.githubusercontent.com/findip-net/findip-shield-js/main/.github/media/shield-install-snippet-thumb.jpg)](https://www.findip.net/assets/videos/shield-install-snippet.mp4) | [![Play: Choose what happens on a form (0:31)](https://raw.githubusercontent.com/findip-net/findip-shield-js/main/.github/media/shield-form-response-thumb.jpg)](https://www.findip.net/assets/videos/shield-form-response.mp4) | [![Play: Connect Shield through Cloudflare (0:35)](https://raw.githubusercontent.com/findip-net/findip-shield-js/main/.github/media/shield-install-cloudflare-thumb.jpg)](https://www.findip.net/assets/videos/shield-install-cloudflare.mp4) |
+| Create a site, paste the snippet, see your first visit. | Protect a sign-up form and see what was recommended and what happened. | No code: authorize, choose a hostname, start in Monitor mode. |
 
 ## Install from npm
 

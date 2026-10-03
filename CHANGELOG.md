@@ -2,6 +2,14 @@
 
 All notable changes to this package are documented here.
 
+## 1.10.1 - 2026-10-03
+
+### Changed
+
+- Documentation only: the README (and so the npm package page) shows the
+  FindIP Shield product clips. The SDK code is the same as 1.10.0; only the
+  reported version changes.
+
 ## 1.10.0 - 2026-09-16
 
 ### Changed

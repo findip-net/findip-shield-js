@@ -8,6 +8,18 @@ export interface SessionInfo {
   visitorId: string | null;
 }
 
+/**
+ * Where the session ID lives: 'cookie' is the normal case, 'session_storage'
+ * means the cookie could not be written, 'window_name' means sessionStorage
+ * was refused too and the tab's window.name carries it, 'link' means it
+ * reached this page in a link token and nothing else keeps it, 'memory'
+ * means nothing keeps it at all (it is lost on the next page load).
+ */
+export type SessionPersistence = 'cookie' | 'session_storage' | 'window_name' | 'link' | 'memory';
+
+/** Where the visitor ID is kept: the cookie (the localStorage copy rides along), localStorage alone, or nowhere. */
+export type VisitorPersistence = 'cookie' | 'local_storage' | 'none';
+
 export interface QueuedEvent {
   payload: unknown;
   attempts: number;
@@ -24,7 +36,13 @@ export interface SDKState {
     source: string;
     details?: ConsentState;
   };
+  // setConsent() was last called with a grant (init's own default is not one)
+  consentAgreed: boolean;
   session: SessionInfo;
+  sessionPersistence: SessionPersistence;
+  visitorPersistence: VisitorPersistence;
+  // session ID this page was handed in a link token (core/link-session.ts)
+  linkSessionId: string | null;
   trackingEnabled: boolean;
   queue: QueuedEvent[];
   queueProcessing: boolean;
@@ -63,10 +81,14 @@ export const state: SDKState = {
     granted: true,
     source: 'default',
   },
+  consentAgreed: false,
   session: {
     sessionId: '',
     visitorId: null,
   },
+  sessionPersistence: 'cookie',
+  visitorPersistence: 'none',
+  linkSessionId: null,
   trackingEnabled: true,
   queue: [],
   queueProcessing: false,
@@ -90,6 +112,10 @@ export function resetState(): void {
   state.effectivePrivacyMode = 'balanced';
   state.consent = { granted: true, source: 'default' };
   state.session = { sessionId: '', visitorId: null };
+  state.sessionPersistence = 'cookie';
+  state.visitorPersistence = 'none';
+  state.linkSessionId = null;
+  state.consentAgreed = false;
   state.trackingEnabled = true;
   state.queue = [];
   state.queueProcessing = false;

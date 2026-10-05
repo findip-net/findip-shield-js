@@ -20,6 +20,8 @@ import { hasIdentity, resolveIdentity, type IdentifyOptions } from '../core/iden
 import { trackEvent } from './track';
 import { attachEnforcement, resolveFormEvent } from '../core/enforcement';
 import { requestFormSnapshot } from '../core/snapshot';
+import { attachSessionField } from '../core/session-field';
+import { attachLinkSession, consumeLinkToken } from '../core/link-session';
 import { debug } from '../utils/logger';
 
 let unloadHandlerAttached = false;
@@ -37,6 +39,7 @@ export function init(options: FindIPConfig): void {
 
   if (hasIdentity(config.identify)) identify(config.identify);
 
+  consumeLinkToken();
   initializeSessionIds(config);
   attachUnloadHandler();
 
@@ -52,6 +55,8 @@ export function init(options: FindIPConfig): void {
 
   // Before the form tracking listener: enforcement runs first on a submit.
   attachEnforcement();
+  attachSessionField();
+  attachLinkSession();
 
   if (config.autoTrack) {
     void sendAutoPageEvents();

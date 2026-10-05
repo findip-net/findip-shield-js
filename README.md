@@ -105,6 +105,30 @@ await FindIP.track('login_attempt');
 const { sessionId } = FindIP.getSession();
 ```
 
+### Session ID in your forms
+
+Your server needs the Shield session ID to [verify a session](https://findip.net/docs/shield/server-verification). With `sessionField` the SDK adds it to your forms as a hidden input, so the server does not depend on the `_fip_sid` cookie (a browser that blocks cookies never has one):
+
+```js
+FindIP.init({ siteKey: 'pub_xxxxxxxxx', sessionField: true }); // field name: findip_session
+```
+
+```html
+<script src="https://cdn.findip.net/shield/v1.js" data-site-key="pub_xxxxxxxxx" data-session-field="findip_session"></script>
+```
+
+Only forms that POST to the page's own origin get the field. It is off by default.
+
+### Keeping a session across links without cookies
+
+For visitors whose browser does not keep the session cookie, `linkSession` carries the session ID across a link click, including links that open in a new tab:
+
+```js
+FindIP.init({ siteKey: 'pub_xxxxxxxxx', linkSession: true });
+```
+
+At click time the SDK adds `_fip=<session id>.<time>` to same-origin links; the page that opens removes it from the address bar when the SDK starts. It is off by default because it changes link addresses: your server sees the parameter on that one request, and scripts that read the address before the SDK starts can see it. Nothing is added for visitors whose session cookie works.
+
 For reproducible deployments, use a [pinned release with SRI](https://findip.net/docs/shield/quickstart) instead of the auto-updating `v1.js` alias.
 
 ### Version policy

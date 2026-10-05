@@ -1,6 +1,7 @@
 declare const __SDK_VERSION__: string;
 
 import type { IdentifyOptions } from './identify';
+import { resolveSessionFieldName } from './session-field';
 
 export const SDK_NAME = 'findip-shield-js';
 export const SDK_VERSION = typeof __SDK_VERSION__ !== 'undefined' ? __SDK_VERSION__ : '1.0.0';
@@ -47,12 +48,27 @@ export interface FindIPConfig {
   maxPayloadBytes?: number;
   sessionCookieDurationMinutes?: number;
   visitorCookieDurationDays?: number;
+  /**
+   * Add a hidden field with the Shield session ID to the page's forms, so
+   * your server can verify the session without the `_fip_sid` cookie.
+   * `true` names it `findip_session`; a string sets the name. Only forms
+   * that POST to the page's own origin get it. Default off.
+   */
+  sessionField?: boolean | string;
+  /**
+   * For a browser that does not keep the session cookie: add a short-lived
+   * `_fip` token to same-origin links at click time, so the next page (also
+   * in a new tab) continues the session. The token is removed from the
+   * address bar as soon as that page loads. Default off.
+   */
+  linkSession?: boolean;
 }
 
 export interface ResolvedConfig extends Required<
   Omit<
     FindIPConfig,
     | 'siteKey'
+    | 'sessionField'
     | 'privacyMode'
     | 'autoTrack'
     | 'autoDetectForms'
@@ -72,6 +88,8 @@ export interface ResolvedConfig extends Required<
   identify: IdentifyOptions | null;
   // null = fetch from the identity-key endpoint next to `endpoint`
   identityKey: string | null;
+  // name of the hidden session field; null = off
+  sessionField: string | null;
 }
 
 export const DEFAULT_ENDPOINT = 'https://shield.findip.net/v1/shield/track';
@@ -91,6 +109,7 @@ export const SESSION_STARTED_COOKIE_NAME = '_fip_ss';
 export const VISITOR_COOKIE_NAME = '_fip_vid';
 export const SESSION_STORAGE_KEY = '_fip_sid';
 export const SESSION_STARTED_STORAGE_KEY = '_fip_ss';
+export const VISITOR_STORAGE_KEY = '_fip_vid';
 export const QUEUE_MAX_SIZE = 20;
 
 export const VALID_EVENTS = new Set([
@@ -165,6 +184,8 @@ export function resolveConfig(partial: FindIPConfig): ResolvedConfig {
     maxPayloadBytes: partial.maxPayloadBytes ?? DEFAULT_MAX_PAYLOAD_BYTES,
     sessionCookieDurationMinutes: partial.sessionCookieDurationMinutes ?? 30,
     visitorCookieDurationDays: partial.visitorCookieDurationDays ?? 30,
+    sessionField: resolveSessionFieldName(partial.sessionField),
+    linkSession: partial.linkSession ?? false,
   };
 }
 
@@ -203,6 +224,8 @@ export function parseScriptTagConfig(): Partial<FindIPConfig> {
   if (dataset.debug !== undefined) config.debug = dataset.debug === 'true';
   if (dataset.endpoint) config.endpoint = dataset.endpoint;
   if (dataset.identityKey) config.identityKey = dataset.identityKey;
+  if (dataset.sessionField !== undefined) config.sessionField = dataset.sessionField || true;
+  if (dataset.linkSession !== undefined) config.linkSession = dataset.linkSession !== 'false';
 
   // data-user-id / data-user-email / data-plan / data-hash-salt
   if (

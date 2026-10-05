@@ -30,6 +30,16 @@ export function setSessionStorage(key: string, value: string): boolean {
   }
 }
 
+/** True only when the browser's own sessionStorage holds `value` (no memory fallback). */
+export function sessionStorageHolds(key: string, value: string): boolean {
+  if (typeof sessionStorage === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(key) === value;
+  } catch {
+    return false;
+  }
+}
+
 export function getLocalStorage(key: string, privacyMode: PrivacyMode): string | null {
   if (!canUseLocalStorage(privacyMode)) return null;
   if (typeof localStorage === 'undefined') return null;
@@ -48,6 +58,15 @@ export function setLocalStorage(key: string, value: string, privacyMode: Privacy
     return true;
   } catch {
     return false;
+  }
+}
+
+export function removeLocalStorage(key: string): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // storage unavailable
   }
 }
 

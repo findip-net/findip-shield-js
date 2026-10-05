@@ -2,6 +2,69 @@
 
 All notable changes to this package are documented here.
 
+## 1.11.0 - 2026-10-05
+
+### Added
+
+- Every event now says where the session ID is kept, in `session.storage`:
+  `cookie` (the normal case), `session_storage` (the cookie could not be
+  written), `window_name` (sessionStorage was refused too), `link` (it
+  arrived in a link token, see `linkSession`) or `memory` (the browser keeps
+  nothing, so the ID is lost on the next page load). Shield uses it to mark
+  visitors who block cookies.
+- Every event also says where the visitor ID is kept, in
+  `session.visitor_storage`: `cookie`, `local_storage` (the cookie could not
+  be written) or `none`. The Shield dashboard shows both values as
+  "Recognised by".
+- When the cookie and sessionStorage are both refused, the session ID is
+  carried in the tab's `window.name` (`_fip_sid=<site key>.<session id>.<last
+  seen>`), so the pages of one visit in one tab stay one session and a passed
+  challenge is remembered. It expires like the session cookie
+  (`sessionCookieDurationMinutes`), is tied to the site key, and ends with
+  the tab. The SDK only writes an empty `window.name`: if the page or its
+  opener named the window, the name is left alone. The SDK clears its value
+  again once the cookie or sessionStorage works.
+- When the browser keeps nothing at all, Shield answers with a session ID it
+  derives itself, the same on every page of the visit, and the SDK adopts it:
+  `getSession()`, the challenge check and form snapshots use that ID from the
+  first `/track` response on. Before that response `getSession()` returns a
+  temporary ID.
+- `sessionField` option (off by default; `data-session-field` on the script
+  tag): adds a hidden input with the Shield session ID to forms that POST to
+  the page's own origin, so your server can verify the session without
+  reading the `_fip_sid` cookie. `true` names the field `findip_session`; a
+  string sets the name. The field is written on submit and when the visitor
+  first focuses the form. GET forms and forms posting to another origin never
+  get it.
+- `linkSession` option (off by default; `data-link-session` on the script
+  tag), for browsers that do not keep the session cookie: when the visitor
+  clicks a same-origin link, the SDK adds `_fip=<session id>.<time>` to that
+  link's address. The page that opens continues the session, also in a new
+  tab, and removes the token from the address bar as soon as the SDK starts.
+  A token is accepted for two minutes and only on a page reached from the
+  same origin, so a pasted or shared link starts no session. Nothing is added
+  while the session cookie works, to links on other origins, downloads or
+  in-page jumps, or to a click your own code handled (`preventDefault`).
+  Your server sees the parameter on that one request, and a script that reads
+  the address before the SDK starts can see it too.
+
+### Changed
+
+- The visitor ID is now kept in two places with the same lifetime
+  (`visitorCookieDurationDays`): the `_fip_vid` cookie and a `localStorage`
+  entry of the same name. On each page the SDK reads whichever still holds it
+  (the cookie first) and writes both again, so a visitor whose cookie was
+  removed or could not be written keeps the same ID. `localStorage` is never
+  used in strict privacy mode. If your site lists the storage it uses, add the
+  `_fip_vid` `localStorage` entry.
+- `setConsent()` now updates the visitor ID straight away. When a visitor who
+  had agreed withdraws consent, the SDK deletes the visitor ID from the cookie
+  and from `localStorage` and stops sending it; agreeing again starts a new
+  one. Earlier versions kept sending the ID until the next page load and left
+  the cookie in place.
+- When neither the cookie nor `localStorage` can be written, `visitor_id` is
+  sent as `null`. Earlier versions sent a new random ID on every page load.
+
 ## 1.10.1 - 2026-10-03
 
 ### Changed

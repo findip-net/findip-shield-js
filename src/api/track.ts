@@ -1,7 +1,7 @@
 import { QUEUE_MAX_SIZE } from '../core/config';
 import { isTrackingAllowed } from '../core/consent';
 import { buildPayload, enforcePayloadSize, type EventMeta } from '../core/payload';
-import { getSession, refreshSessionId } from '../core/session-ids';
+import { adoptServerSessionId, getSession, refreshSessionId } from '../core/session-ids';
 import { state } from '../core/state';
 import { getRetryDelay, sendPayload, shouldRetry, type TrackResponse } from '../core/transport';
 import { pushRiskResult, readDataLayerContext } from '../collectors/gtm';
@@ -128,6 +128,7 @@ async function processQueue(): Promise<void> {
         state.queue.shift();
         item.resolve(response);
         if (response) {
+          adoptServerSessionId(response.session_id);
           pushRiskResult(response);
           applyTrackResponse(response);
         }

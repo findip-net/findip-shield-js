@@ -56,6 +56,8 @@ export function buildPayload(
     session: {
       session_id: state.session.sessionId,
       visitor_id: state.session.visitorId,
+      storage: state.sessionPersistence,
+      visitor_storage: state.visitorPersistence,
     },
     browser: collectBrowserContext(privacyMode),
     customer_context: sanitizeCustomerContext(customerContext ?? {}),

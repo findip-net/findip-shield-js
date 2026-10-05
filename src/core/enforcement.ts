@@ -1,5 +1,6 @@
 import { identityKeyEndpoint } from './config';
 import { state } from './state';
+import { challengePassedInWindowName, refreshSessionId } from './session-ids';
 import type { TrackResponse } from './transport';
 import { inferFormEvent } from '../collectors/forms';
 import { trackEvent } from '../api/track';
@@ -273,6 +274,9 @@ function restoreChallengePassed(): void {
   } catch {
     // storage unavailable
   }
+  if (!state.challengePassed && state.config && challengePassedInWindowName(state.config)) {
+    state.challengePassed = true;
+  }
 }
 
 function rememberChallengePassed(): void {
@@ -282,6 +286,8 @@ function rememberChallengePassed(): void {
   } catch {
     // storage unavailable
   }
+  // Rewrites window.name with the passed flag when that is what carries the session.
+  if (state.config) refreshSessionId(state.config);
 }
 
 type FormMeta = { form_id: string | null; form_name: string | null; form_action: string | null };

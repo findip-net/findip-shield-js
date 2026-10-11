@@ -4,6 +4,22 @@ All notable changes to this package are documented here.
 
 ## Unreleased
 
+### Added
+
+- `npx @findip/shield init [--site-key pub_xxx] [--dry-run] [--yes]`: a
+  command that sets up Shield in the project it is run in. It detects
+  Next.js (App Router or Pages Router), React + Vite, Vue + Vite, SvelteKit,
+  Astro or a plain HTML site, prints what it found and what it will change,
+  and asks before writing. For npm projects it prints the install command for
+  the project's package manager, adds the framework's site key variable to
+  `.env.example` (and the key itself to `.env.local` when `--site-key` is
+  given) and creates one file that starts the SDK in the browser. For plain
+  HTML it prints the script tag. It never overwrites a file: when the init
+  file exists or the project already uses Shield, it prints the snippet and
+  changes nothing. It makes no network request and never handles the secret
+  key. The package now has a `bin` entry and publishes the `cli/` folder;
+  the browser SDK is unchanged.
+
 ### Changed
 
 - README: use cases (risky signups, free-trial abuse, checkout and payment

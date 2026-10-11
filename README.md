@@ -102,6 +102,21 @@ const { sessionId } = getSession();
 
 The package provides ESM, CommonJS, and TypeScript declarations.
 
+### Set up a project with one command
+
+```bash
+npx @findip/shield init --site-key pub_xxxxxxxxx
+```
+
+Run it in the root of a Next.js (App or Pages Router), React + Vite, Vue + Vite, SvelteKit or Astro project, or of a plain HTML site. It prints what it found and every change before asking to make it:
+
+- the install command for your package manager (npm, pnpm, yarn or bun), for you to run;
+- the site key variable in `.env.example`, named for the framework, such as `NEXT_PUBLIC_FINDIP_SHIELD_SITE_KEY`, and your key in `.env.local` when you pass `--site-key`;
+- one new file that starts the SDK once in the browser, such as `app/shield.tsx`, and the line that uses it;
+- for plain HTML, the script tag to paste.
+
+Existing files are never overwritten: if the init file is already there, or the project already uses Shield, it prints the snippet and changes nothing. `--dry-run` prints the changes only, and `--yes` skips the question, which is what a coding agent or a script needs. The command works offline and handles the public site key only; the secret key for [server verification](https://findip.net/docs/shield/server-verification) stays on your server.
+
 ### Report each submit once
 
 `autoDetectForms` is on by default. When a `<form>` is submitted, the SDK reports it as `signup_attempt`, `login_attempt`, `payment_attempt`, `checkout_started`, `lead_submitted` or `password_reset_attempt`, according to the form's fields, its button and the page. Calling `track()` with the same event name for the same submit records it twice, so use one or the other:
@@ -271,6 +286,8 @@ Build output:
 - `dist/findip-shield.esm.js` — ES module
 - `dist/findip-shield.min.js` — minified browser IIFE
 - `dist/index.d.ts` — TypeScript declarations
+
+The `init` command is plain Node ESM in `cli/` (no build step, no dependencies, Node 18 or later).
 
 ## Security
 

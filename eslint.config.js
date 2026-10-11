@@ -10,6 +10,13 @@ export default tseslint.config(
     ignores: ['dist/**', 'node_modules/**', '../**/dist/**'],
   },
   {
+    // The CLI and the package scripts are plain Node ESM.
+    files: ['cli/**/*.js', 'scripts/**/*.mjs'],
+    languageOptions: {
+      globals: { console: 'readonly', process: 'readonly' },
+    },
+  },
+  {
     files: ['src/**/*.ts', 'test/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],

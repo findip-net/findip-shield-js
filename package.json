@@ -14,8 +14,12 @@
       "default": "./dist/findip-shield.esm.js"
     }
   },
+  "bin": {
+    "findip-shield": "./cli/findip-shield.js"
+  },
   "files": [
-    "dist"
+    "dist",
+    "cli"
   ],
   "sideEffects": true,
   "homepage": "https://findip.net/docs/shield/javascript-sdk",
@@ -36,7 +40,7 @@
     "dev": "vite build --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src test",
+    "lint": "eslint src test cli scripts",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "typecheck": "tsc --noEmit"
   },

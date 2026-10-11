@@ -2,6 +2,16 @@
 
 All notable changes to this package are documented here.
 
+## Unreleased
+
+### Fixed
+
+- `init()` no longer throws when it is called from a synchronous script in
+  `<head>`, before the browser has created `<body>`. Form detection now
+  starts once the document has been parsed: every form present at
+  `DOMContentLoaded` is reported, and forms added later are picked up as
+  before. Nothing changes for pages that call `init()` after the body exists.
+
 ## 1.11.0 - 2026-10-05
 
 ### Added

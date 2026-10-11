@@ -4,6 +4,17 @@ All notable changes to this package are documented here.
 
 ## Unreleased
 
+### Changed
+
+- README: use cases (risky signups, free-trial abuse, checkout and payment
+  risk, login abuse, traffic quality), the measured bundle size, links to the
+  framework examples and the FindIP MCP server. The install example no longer
+  shows `autoDetectForms` together with an explicit `track('signup_attempt')`
+  for the same form, which recorded each signup twice; a new section explains
+  when to rely on form detection and when to call `track()`.
+- npm keywords: `signup-fraud`, `checkout-fraud`, `bot-detection`,
+  `visitor-risk`, `google-tag-manager`.
+
 ### Fixed
 
 - `init()` no longer throws when it is called from a synchronous script in

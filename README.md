@@ -6,7 +6,9 @@
 
 [FindIP Shield](https://findip.net/docs/shield) adds visitor risk intelligence to a website. The SDK reports VPN, proxy, Tor, relay, hosting, datacenter, malicious-IP, and network signals without collecting form values.
 
-Published on npm as [`@findip/shield`](https://www.npmjs.com/package/@findip/shield).
+Published on npm as [`@findip/shield`](https://www.npmjs.com/package/@findip/shield). It has no npm dependencies, and the browser build is 49.9 kB minified, 16.7 kB gzipped (1.11.0).
+
+Shield returns risk signals, a score and a recommendation for each visit and form submit. The decision stays yours, and the place to make it is your server: see [server verification](https://findip.net/docs/shield/server-verification).
 
 ## See Shield in action
 
@@ -21,6 +23,58 @@ The clip uses sample data, and its captions are on screen. Three more short clip
 | <a href="https://www.findip.net/assets/videos/shield-install-snippet.mp4"><img src="https://raw.githubusercontent.com/findip-net/findip-shield-js/main/.github/media/shield-install-snippet-thumb.jpg" width="220" alt="Play: Add Shield with a website snippet (0:34)"></a> | <a href="https://www.findip.net/assets/videos/shield-form-response.mp4"><img src="https://raw.githubusercontent.com/findip-net/findip-shield-js/main/.github/media/shield-form-response-thumb.jpg" width="220" alt="Play: Choose what happens on a form (0:31)"></a> | <a href="https://www.findip.net/assets/videos/shield-install-cloudflare.mp4"><img src="https://raw.githubusercontent.com/findip-net/findip-shield-js/main/.github/media/shield-install-cloudflare-thumb.jpg" width="220" alt="Play: Connect Shield through Cloudflare (0:35)"></a> |
 | Create a site, paste the snippet, see your first visit. | Protect a sign-up form and see what was recommended and what happened. | No code: authorize, choose a hostname, start in Monitor mode. |
 
+## Use cases
+
+Each one starts from the same call, once per page:
+
+```ts
+import { init, track } from '@findip/shield';
+
+init({ siteKey: 'pub_xxxxxxxxx' });
+```
+
+### Detect risky signups
+
+The SDK finds the signup form and reports its submit as `signup_attempt`, with the visitor's VPN, proxy, Tor, hosting and malicious-IP signals, a risk score and the reasons behind it. No code beyond `init()`. Report the outcome once your server has answered:
+
+```ts
+await track('signup_success');
+```
+
+### Free-trial abuse
+
+In `balanced` and `advanced` mode the SDK keeps one visitor ID across sessions and network changes, so repeat trial signups from one browser share an ID even when the IP address changes. Send the plan with the signup outcome:
+
+```ts
+await track('signup_success', { plan: 'trial' });
+```
+
+### Checkout and payment risk
+
+Checkout and payment forms are reported as `checkout_started` and `payment_attempt`, described by their markup only: card fields are never read. Add the order's amount to the outcome you report:
+
+```ts
+await track('payment_failed', { transaction_amount: 49, currency: 'USD' });
+```
+
+### Login abuse
+
+A login form's submit is reported as `login_attempt`. Report how it ended, and failed logins appear next to the network signals of the session that made them:
+
+```ts
+await track(ok ? 'login_success' : 'login_failed');
+```
+
+### Traffic quality
+
+Every page view is scored. The result is pushed to `window.dataLayer` as `findip_risk_result`, ready for Google Tag Manager and GA4, so you can segment campaigns and conversions by risk level and network type:
+
+```js
+{ event: 'findip_risk_result', findip_risk_level: 'high', findip_recommendation: 'challenge', findip_is_vpn: true, findip_is_hosting: true /* ... */ }
+```
+
+For signups, logins and payments, [verify the session on your server](https://findip.net/docs/shield/server-verification) before you act. The browser SDK reports risk signals; your server, holding the secret key, makes the decision.
+
 ## Install from npm
 
 ```bash
@@ -33,11 +87,12 @@ import { init, track, getSession, setConsent } from '@findip/shield';
 init({
   siteKey: 'pub_xxxxxxxxx',
   privacyMode: 'balanced',
-  autoTrack: true,
-  autoDetectForms: true,
+  autoTrack: true,       // page views
+  autoDetectForms: true, // form submits: a signup form is reported as `signup_attempt`
 });
 
-await track('signup_attempt', {
+// An outcome only your app knows, sent after your server has answered.
+await track('signup_success', {
   email_domain: 'example.com',
   plan: 'free',
 });
@@ -46,6 +101,14 @@ const { sessionId } = getSession();
 ```
 
 The package provides ESM, CommonJS, and TypeScript declarations.
+
+### Report each submit once
+
+`autoDetectForms` is on by default. When a `<form>` is submitted, the SDK reports it as `signup_attempt`, `login_attempt`, `payment_attempt`, `checkout_started`, `lead_submitted` or `password_reset_attempt`, according to the form's fields, its button and the page. Calling `track()` with the same event name for the same submit records it twice, so use one or the other:
+
+- **Detected forms**: add nothing for the attempt. Use `track()` for outcomes the page cannot see, such as `signup_success`, `login_success`, `login_failed` or `payment_failed`.
+- **Submits without a submit event**: a button with a click handler and no `<form>`, a multi-step flow, or a form sent with `form.submit()`. Call `track('signup_attempt')` yourself at that point.
+- **Reporting everything yourself**: set `autoDetectForms: false` and call `track()` for every attempt.
 
 ### Identify the visitor
 
@@ -101,7 +164,7 @@ with your GTM variables instead, because GTM strips `data-*` attributes.
 The CDN build exposes `window.FindIP`:
 
 ```js
-await FindIP.track('login_attempt');
+await FindIP.track('login_success'); // the login form's submit is already reported as `login_attempt`
 const { sessionId } = FindIP.getSession();
 ```
 
@@ -165,11 +228,29 @@ setConsent({
 
 Set `consentRequired: true` when tracking must wait for an explicit decision. See [Privacy Modes](https://findip.net/docs/shield/privacy-modes) and [Data Collection](https://findip.net/docs/shield/data-collection) before deploying.
 
+## Framework examples
+
+[findip-shield-examples](https://github.com/findip-net/findip-shield-examples) has one small signup app per stack, each with the SDK started once, the site key read from configuration and, where the framework has a server, the session verified before the account is created:
+
+- [Next.js (App Router)](https://github.com/findip-net/findip-shield-examples/tree/main/nextjs-app-router)
+- [React + Vite](https://github.com/findip-net/findip-shield-examples/tree/main/react-vite)
+- [Vue + Vite](https://github.com/findip-net/findip-shield-examples/tree/main/vue)
+- [Astro](https://github.com/findip-net/findip-shield-examples/tree/main/astro)
+- [SvelteKit](https://github.com/findip-net/findip-shield-examples/tree/main/sveltekit)
+- [Plain HTML](https://github.com/findip-net/findip-shield-examples/tree/main/plain-html)
+
+The same repo has a [Claude Code skill](https://github.com/findip-net/findip-shield-examples/tree/main/skill/findip-shield) and a [Cursor rule](https://github.com/findip-net/findip-shield-examples/blob/main/.cursor/rules/findip-shield.mdc) that add Shield to an existing project.
+
+## AI assistants
+
+The [FindIP MCP server](https://github.com/findip-net/findip-mcp) (`npx -y @findip/mcp`) lets an AI assistant look up an IP address, list a Shield site's recent risky events and explain the reasons behind one event.
+
 ## Documentation
 
 - [Quickstart](https://findip.net/docs/shield/quickstart)
 - [JavaScript SDK reference](https://findip.net/docs/shield/javascript-sdk)
 - [Events reference](https://findip.net/docs/shield/events)
+- [Server verification](https://findip.net/docs/shield/server-verification)
 - [Google Tag Manager](https://findip.net/docs/shield/google-tag-manager)
 - [Cookies](https://findip.net/docs/shield/cookies)
 - [FindIP Threat Network](https://findip.net/docs/shield/threat-network)

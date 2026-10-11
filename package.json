@@ -49,7 +49,12 @@
     "proxy-detection",
     "tor-detection",
     "browser-sdk",
-    "typescript"
+    "typescript",
+    "signup-fraud",
+    "checkout-fraud",
+    "bot-detection",
+    "visitor-risk",
+    "google-tag-manager"
   ],
   "license": "MIT",
   "devDependencies": {

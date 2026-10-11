@@ -371,15 +371,28 @@ export function observeFormViews(onView: (form: HTMLFormElement) => void): void 
     { threshold: 0.25 },
   );
 
-  const forms = document.querySelectorAll('form');
-  forms.forEach((form) => observer.observe(form));
-
-  if (typeof MutationObserver !== 'undefined') {
-    const mutation = new MutationObserver(() => {
-      document.querySelectorAll('form').forEach((form) => {
-        if (!seen.has(form)) observer.observe(form);
-      });
+  const scan = (): void => {
+    document.querySelectorAll('form').forEach((form) => {
+      if (!seen.has(form)) observer.observe(form);
     });
-    mutation.observe(document.body, { childList: true, subtree: true });
+  };
+
+  const start = (): void => {
+    scan();
+    if (typeof MutationObserver === 'undefined') return;
+    // A document without a body (a frameset, or one whose body was removed)
+    // is watched from its root instead.
+    const root = document.body ?? document.documentElement ?? document;
+    new MutationObserver(scan).observe(root, { childList: true, subtree: true });
+  };
+
+  // init() can run from a synchronous script in <head>, before the parser has
+  // created <body>. The forms are then picked up when the document has been
+  // parsed: everything present at DOMContentLoaded is seen, and later
+  // additions reach the MutationObserver as usual.
+  if (!document.body && document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
   }
 }

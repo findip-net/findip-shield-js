@@ -6,7 +6,7 @@
 
 [FindIP Shield](https://findip.net/docs/shield) adds visitor risk intelligence to a website. The SDK reports VPN, proxy, Tor, relay, hosting, datacenter, malicious-IP, and network signals without collecting form values.
 
-Published on npm as [`@findip/shield`](https://www.npmjs.com/package/@findip/shield). It has no npm dependencies, and the browser build is 49.9 kB minified, 16.7 kB gzipped (1.11.0).
+Published on npm as [`@findip/shield`](https://www.npmjs.com/package/@findip/shield). It has no npm dependencies, and the browser build is 50.1 kB minified, 16.7 kB gzipped (1.12.0).
 
 Shield returns risk signals, a score and a recommendation for each visit and form submit. The decision stays yours, and the place to make it is your server: see [server verification](https://findip.net/docs/shield/server-verification).
 

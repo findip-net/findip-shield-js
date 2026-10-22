@@ -10,6 +10,10 @@ Published on npm as [`@findip/shield`](https://www.npmjs.com/package/@findip/shi
 
 Shield returns risk signals, a score and a recommendation for each visit and form submit. The decision stays yours, and the place to make it is your server: see [server verification](https://findip.net/docs/shield/server-verification).
 
+## Pricing and the free deal
+
+Shield is free during the Free Preview: unlimited API calls under fair use and up to 10,000 recorded events per site per day. It is free because free sites contribute pseudonymized, network-level sightings (IP address, network flags, a coarse event class) to the [FindIP Threat Network](https://www.findip.net/docs/shield/threat-network). Your site appears there only as an irreversible pseudonym, and form values and cross-site profiles of people are never part of it. The Free Preview has no SLA. Details: [Free Preview terms](https://www.findip.net/docs/shield/terms-free-preview).
+
 ## See Shield in action
 
 [![A sample sign-up arrives through a VPN. FindIP Shield shows the reasons behind its risk score, follows the session across networks, and records what the page did](https://raw.githubusercontent.com/findip-net/findip-shield-js/main/.github/media/shield-signup-insight-teaser.gif)](https://www.findip.net/assets/videos/shield-signup-insight.mp4)

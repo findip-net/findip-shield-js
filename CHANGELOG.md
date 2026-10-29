@@ -2,6 +2,25 @@
 
 All notable changes to this package are documented here.
 
+## 1.13.0 - 2026-10-29
+
+### Added
+
+- Pages inside a mobile app's WebView (Capacitor, Ionic, Cordova, a native
+  WebView) can report to a FindIP Shield **mobile app** site. `integration`
+  accepts `webview`, and the new `appId` option (`data-app-id` on the script
+  tag) names the app: the iOS bundle identifier or Android applicationId
+  registered on the site. It is sent as `app.bundle_id` with every event,
+  only when it has the shape Shield accepts. The SDK warns once in the
+  console when `integration` is `webview` without an `appId`, because an app
+  site refuses those events. Websites are unchanged: without `appId` no
+  `app` block is sent.
+
+### Changed
+
+- README: a section on pages inside a mobile app, and what Shield costs and
+  why it is free.
+
 ## 1.12.0 - 2026-10-11
 
 ### Added

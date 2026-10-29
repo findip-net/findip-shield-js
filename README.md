@@ -292,7 +292,6 @@ The [FindIP MCP server](https://github.com/findip-net/findip-mcp) (`npx -y @find
 - [JavaScript SDK reference](https://findip.net/docs/shield/javascript-sdk)
 - [Events reference](https://findip.net/docs/shield/events)
 - [Server verification](https://findip.net/docs/shield/server-verification)
-- [Mobile apps](https://findip.net/docs/shield/mobile)
 - [Google Tag Manager](https://findip.net/docs/shield/google-tag-manager)
 - [Cookies](https://findip.net/docs/shield/cookies)
 - [FindIP Threat Network](https://findip.net/docs/shield/threat-network)

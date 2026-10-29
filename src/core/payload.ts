@@ -44,6 +44,8 @@ export function buildPayload(
       version: SDK_VERSION,
       integration: detectIntegration(),
     },
+    // A page in a mobile app's WebView names its app (Shield app sites).
+    ...(config.appId ? { app: { bundle_id: config.appId } } : {}),
     event: {
       name: normalizeEventName(event.name),
       timestamp: new Date().toISOString(),

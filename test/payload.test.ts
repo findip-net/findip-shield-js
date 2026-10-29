@@ -53,4 +53,18 @@ describe('payload', () => {
     const size = JSON.stringify(limited).length;
     expect(size).toBeLessThanOrEqual(2048);
   });
+
+  it('names its app from a WebView page, and only then', () => {
+    expect(buildPayload({ name: 'page_view' })).not.toHaveProperty('app');
+    state.config = resolveConfig({ siteKey: 'pub_test', integration: 'webview', appId: ' com.example.app ' });
+    const payload = buildPayload({ name: 'login_attempt' });
+    expect(payload.app).toEqual({ bundle_id: 'com.example.app' });
+    expect((payload.sdk as { integration: string }).integration).toBe('webview');
+  });
+
+  it('drops an app id Shield could never match', () => {
+    for (const bad of ['', 'x', 'com.example app', 'https://example.com/app', 'a'.repeat(200)]) {
+      expect(resolveConfig({ siteKey: 'pub_test', appId: bad }).appId).toBeNull();
+    }
+  });
 });

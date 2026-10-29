@@ -22,7 +22,7 @@ import { attachEnforcement, resolveFormEvent } from '../core/enforcement';
 import { requestFormSnapshot } from '../core/snapshot';
 import { attachSessionField } from '../core/session-field';
 import { attachLinkSession, consumeLinkToken } from '../core/link-session';
-import { debug } from '../utils/logger';
+import { debug, warn } from '../utils/logger';
 
 let unloadHandlerAttached = false;
 
@@ -30,6 +30,11 @@ export function init(options: FindIPConfig): void {
   const scriptConfig = parseScriptTagConfig();
   const merged = { ...scriptConfig, ...options };
   const config = resolveConfig(merged);
+
+  // A WebView page without its app id is refused by Shield app sites: say so once, up front.
+  if (config.integration === 'webview' && !config.appId) {
+    warn('integration "webview" needs appId (data-app-id): the app\'s bundle id or applicationId, as registered on your Shield app site.');
+  }
 
   state.config = config;
   state.effectivePrivacyMode = config.privacyMode;

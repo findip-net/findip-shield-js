@@ -187,6 +187,28 @@ await FindIP.track('login_success'); // the login form's submit is already repor
 const { sessionId } = FindIP.getSession();
 ```
 
+### Pages inside a mobile app (WebView)
+
+For a Capacitor, Ionic or Cordova app, or any page shown in a native WebView,
+create a **mobile app** site in the Shield dashboard and tell the script which
+app it runs in:
+
+```html
+<script
+  src="https://cdn.findip.net/shield/v1.js"
+  data-site-key="pub_xxxxxxxxx"
+  data-integration="webview"
+  data-app-id="com.example.app">
+</script>
+```
+
+`data-app-id` (or `appId` in `FindIP.init`) is the iOS bundle identifier or
+Android applicationId registered on the site. An app site has no domain to
+check, so Shield matches this id instead and refuses events without it.
+Everything else works as on a website, including form detection and in-page
+enforcement. As everywhere, act on a verdict only after your server has
+[verified the session](https://findip.net/docs/shield/server-verification).
+
 ### Session ID in your forms
 
 Your server needs the Shield session ID to [verify a session](https://findip.net/docs/shield/server-verification). With `sessionField` the SDK adds it to your forms as a hidden input, so the server does not depend on the `_fip_sid` cookie (a browser that blocks cookies never has one):

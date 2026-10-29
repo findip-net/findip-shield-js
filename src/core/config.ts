@@ -8,7 +8,7 @@ export const SDK_VERSION = typeof __SDK_VERSION__ !== 'undefined' ? __SDK_VERSIO
 
 export type PrivacyMode = 'strict' | 'balanced' | 'advanced';
 export type NoConsentMode = 'strict' | 'disabled';
-export type Integration = 'javascript' | 'gtm' | 'wordpress' | 'woocommerce' | 'shopify';
+export type Integration = 'javascript' | 'gtm' | 'wordpress' | 'woocommerce' | 'shopify' | 'webview';
 
 export type ConsentState =
   | boolean
@@ -27,6 +27,14 @@ export interface FindIPConfig {
   consentRequired?: boolean;
   noConsentMode?: NoConsentMode;
   integration?: string;
+  /**
+   * For a page inside a mobile app's WebView (Capacitor, Ionic, Cordova, a
+   * native WebView): the iOS bundle identifier or Android applicationId of
+   * the app, as registered on a Shield app site. Sent with every event so
+   * Shield can match it; use it with `integration: 'webview'`. An app site
+   * refuses WebView events without it.
+   */
+  appId?: string;
   /** Who the visitor is; hashed and encrypted in the browser, see IdentifyOptions. */
   identify?: IdentifyOptions | null;
   /**
@@ -76,6 +84,7 @@ export interface ResolvedConfig extends Required<
     | 'integration'
     | 'identify'
     | 'identityKey'
+    | 'appId'
   >
 > {
   siteKey: string;
@@ -88,6 +97,8 @@ export interface ResolvedConfig extends Required<
   identify: IdentifyOptions | null;
   // null = fetch from the identity-key endpoint next to `endpoint`
   identityKey: string | null;
+  // the app a WebView page runs in; null = a website
+  appId: string | null;
   // name of the hidden session field; null = off
   sessionField: string | null;
 }
@@ -142,6 +153,8 @@ export const VALID_INTEGRATIONS = new Set<Integration>([
   'wordpress',
   'woocommerce',
   'shopify',
+  // A page inside a mobile app's WebView; sent with appId (Shield app sites).
+  'webview',
 ]);
 
 export const ALLOWED_CONTEXT_FIELDS = new Set([
@@ -175,6 +188,7 @@ export function resolveConfig(partial: FindIPConfig): ResolvedConfig {
     consentRequired: partial.consentRequired ?? false,
     noConsentMode: partial.noConsentMode ?? 'strict',
     integration: normalizeIntegration(partial.integration),
+    appId: normalizeAppId(partial.appId),
     identify: partial.identify ?? null,
     identityKey: partial.identityKey ?? null,
     endpoint: partial.endpoint ?? DEFAULT_ENDPOINT,
@@ -187,6 +201,15 @@ export function resolveConfig(partial: FindIPConfig): ResolvedConfig {
     sessionField: resolveSessionFieldName(partial.sessionField),
     linkSession: partial.linkSession ?? false,
   };
+}
+
+/** Same shape Shield accepts for a registered app id: reverse-DNS characters, at most 160. */
+const APP_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{1,159}$/;
+
+function normalizeAppId(value: string | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return APP_ID_PATTERN.test(trimmed) ? trimmed : null;
 }
 
 function normalizeIntegration(value: string | undefined): Integration | null {
@@ -221,6 +244,7 @@ export function parseScriptTagConfig(): Partial<FindIPConfig> {
   }
   if (dataset.noConsentMode) config.noConsentMode = dataset.noConsentMode as NoConsentMode;
   if (dataset.integration) config.integration = dataset.integration;
+  if (dataset.appId) config.appId = dataset.appId;
   if (dataset.debug !== undefined) config.debug = dataset.debug === 'true';
   if (dataset.endpoint) config.endpoint = dataset.endpoint;
   if (dataset.identityKey) config.identityKey = dataset.identityKey;

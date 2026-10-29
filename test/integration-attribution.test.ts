@@ -79,7 +79,7 @@ describe('integration attribution', () => {
   });
 
   it('accepts every first-party integration value', () => {
-    for (const value of ['javascript', 'gtm', 'wordpress', 'woocommerce', 'shopify']) {
+    for (const value of ['javascript', 'gtm', 'wordpress', 'woocommerce', 'shopify', 'webview']) {
       expect(resolveConfig({ siteKey: 'pub_test', integration: value }).integration).toBe(value);
     }
     expect(resolveConfig({ siteKey: 'pub_test', integration: ' WordPress ' }).integration).toBe(

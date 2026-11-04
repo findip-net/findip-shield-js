@@ -2,6 +2,21 @@
 
 All notable changes to this package are documented here.
 
+## 1.13.1 - 2026-11-04
+
+### Fixed
+
+- A Turnstile check no longer traps the visitor. When Turnstile reports a
+  setup error (the site key is not valid for the domain, or the widget
+  cannot load), the form is sent, as it already was when the Turnstile
+  script could not load. A failed check still stops the submit, but the
+  widget resets for another try and the dialog can be closed with its
+  close button, Escape or a click outside it; the next submit starts a
+  fresh check. Before, a site with a misconfigured key left every
+  challenged visitor in a dialog they could not close.
+- A check that keeps failing while the dialog is open reports `failed`
+  once, not on every automatic retry.
+
 ## 1.13.0 - 2026-10-29
 
 ### Added

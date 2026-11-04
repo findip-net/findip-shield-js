@@ -4,6 +4,7 @@ import { trackEvent } from '../src/api/track';
 import {
   applyTrackResponse,
   detachEnforcement,
+  isTurnstileSetupError,
   navigation,
   resolveFormEvent,
   type EnforcementConfig,
@@ -210,6 +211,63 @@ describe('challenge', () => {
       .filter((r) => r.enforcement)
       .map((r) => r.enforcement!.outcome);
     expect(outcomes).toEqual(['challenged', 'passed']);
+  });
+
+  it('lets the form through when Turnstile reports a setup error (key not valid for this domain)', async () => {
+    const fetchMock = await boot('challenge');
+    const render = vi.fn((_el: HTMLElement, opts: { 'error-callback': (code: string) => boolean | void }) => {
+      setTimeout(() => opts['error-callback']('110200'), 0);
+      return 'w1';
+    });
+    vi.stubGlobal('turnstile', { render, reset: vi.fn() });
+    const form = signupForm();
+    const resubmits: boolean[] = [];
+    form.addEventListener('submit', (e) => resubmits.push(e.defaultPrevented));
+
+    expect(submit(form).defaultPrevented).toBe(true);
+    await vi.waitFor(() => expect(resubmits).toEqual([false]));
+    expect(document.querySelector('.findip-shield-notice')).toBeNull();
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('/challenge'))).toBe(false);
+    // not a pass: the next submit is checked again
+    expect(state.challengePassed).toBe(false);
+    const outcomes = responses(fetchMock).filter((r) => r.enforcement).map((r) => r.enforcement!.outcome);
+    expect(outcomes).toEqual(['challenged', 'failed']);
+  });
+
+  it('keeps a failed check failed, resets the widget, and never traps the visitor', async () => {
+    const fetchMock = await boot('challenge');
+    const reset = vi.fn();
+    const render = vi.fn((_el: HTMLElement, opts: { 'error-callback': (code: string) => boolean | void }) => {
+      setTimeout(() => opts['error-callback']('600010'), 0);
+      return 'w1';
+    });
+    vi.stubGlobal('turnstile', { render, reset });
+    const form = signupForm();
+    const resubmits: boolean[] = [];
+    form.addEventListener('submit', (e) => resubmits.push(e.defaultPrevented));
+
+    expect(submit(form).defaultPrevented).toBe(true);
+    await vi.waitFor(() => expect(reset).toHaveBeenCalledWith('w1'));
+    expect(resubmits).toEqual([]);
+    expect(document.querySelector('.findip-shield-notice')?.textContent).toMatch(/Verification failed/);
+    // the widget retrying on its own does not add more failures
+    const errorCallback = render.mock.calls[0][1]['error-callback'];
+    errorCallback('600010');
+    errorCallback('600010');
+    await vi.waitFor(() => expect(reset).toHaveBeenCalledTimes(3));
+    const outcomes = responses(fetchMock).filter((r) => r.enforcement).map((r) => r.enforcement!.outcome);
+    expect(outcomes).toEqual(['challenged', 'failed']);
+
+    // the visitor can close it, and the form is free again: the next submit starts a fresh check
+    (document.querySelector('.findip-shield-notice-close') as HTMLButtonElement).click();
+    expect(document.querySelector('.findip-shield-notice')).toBeNull();
+    expect(submit(form).defaultPrevented).toBe(true);
+    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(2));
+  });
+
+  it('tells setup errors from failed checks by their Turnstile code', () => {
+    for (const code of ['110100', '110110', '110200', '400020', '200500', '100001']) expect(isTurnstileSetupError(code)).toBe(true);
+    for (const code of ['600010', '300030', '110600', '110620', '200100', '', undefined]) expect(isTurnstileSetupError(code)).toBe(false);
   });
 
   it('falls back to slow-down when no Turnstile key is configured', async () => {

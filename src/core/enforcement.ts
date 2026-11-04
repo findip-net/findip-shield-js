@@ -156,7 +156,7 @@ interface TurnstileApi {
     options: {
       sitekey: string;
       callback: (token: string) => void;
-      'error-callback'?: () => void;
+      'error-callback'?: (code?: string) => boolean | void;
       'expired-callback'?: () => void;
     },
   ): string;
@@ -530,22 +530,37 @@ function challenge(
     return;
   }
   pending.add(form);
-  const notice = showNotice(form, challengeMessage);
+  // Closable: a visitor who cannot pass can always get back to the page, and
+  // closing frees the form so the next submit starts a fresh check.
+  const notice = showNotice(form, challengeMessage, {
+    dismissible: true,
+    onDismiss: () => pending.delete(form),
+  });
   const container = document.createElement('div');
   container.className = `${NOTICE_CLASS}-widget`;
   notice.appendChild(container);
   report('challenged');
 
+  // One 'failed' per check: the widget retries on its own while the dialog is open.
+  let failureReported = false;
+  const reportFailure = () => {
+    if (failureReported) return;
+    failureReported = true;
+    report('failed');
+  };
+  const letThrough = () => {
+    removeNotice(form);
+    pending.delete(form);
+    resubmit(form);
+  };
   const finish = (passed: boolean) => {
     if (passed) {
       rememberChallengePassed();
-      removeNotice(form);
-      pending.delete(form);
       report('passed');
-      resubmit(form);
+      letThrough();
     } else {
-      report('failed');
-      setNoticeText(notice, 'Verification failed. Please try again.');
+      reportFailure();
+      setNoticeText(notice, CHALLENGE_FAILED_MESSAGE);
     }
   };
 
@@ -568,12 +583,41 @@ function challenge(
           finish(passed);
         });
       },
-      'error-callback': () => finish(false),
+      // A setup error (key not valid for this domain, widget cannot load) is
+      // the site's to fix, never the visitor's: the form goes through, the
+      // way it does when Turnstile cannot load at all. A failed or timed-out
+      // check stays failed, with the widget reset for another try.
+      'error-callback': (code?: string) => {
+        if (isTurnstileSetupError(code)) {
+          debug('Turnstile setup error', code, '— failing open');
+          reportFailure();
+          letThrough();
+        } else {
+          finish(false);
+          if (widget.id !== undefined) turnstile.reset(widget.id);
+        }
+        return true;
+      },
       'expired-callback': () => {
         if (widget.id !== undefined) turnstile.reset(widget.id);
       },
     });
   });
+}
+
+const CHALLENGE_FAILED_MESSAGE = 'Verification failed. Please try again, or close this and check your connection.';
+
+/**
+ * Turnstile client error codes that mean the widget cannot run here at all
+ * (developers.cloudflare.com/turnstile/troubleshooting/client-side-errors/):
+ * everything except a timed-out check (1106xx), a client clock problem
+ * (200100), a generic execution failure (300xxx) and a failed challenge
+ * (600xxx), which are what a bot or a flaky connection produce. Without a
+ * code nothing is known, so it counts as a failed check.
+ */
+export function isTurnstileSetupError(code: string | undefined): boolean {
+  if (!code) return false;
+  return !/^(1106|200100|300|600)/.test(String(code));
 }
 
 async function verifyChallenge(token: string): Promise<boolean> {
@@ -661,10 +705,11 @@ function setNoticeText(notice: HTMLElement, text: string): void {
   noticeText(notice).textContent = text;
 }
 
-function removeNotice(form: HTMLFormElement): void {
+function removeNotice(form: HTMLFormElement, dismissed = false): void {
   const backdrop = notices.get(form);
   if (!backdrop) return;
   notices.delete(form);
+  if (dismissed) (backdrop as HTMLElement & { _fipDismiss?: () => void })._fipDismiss?.();
   const restore = (backdrop as HTMLElement & { _fipFocus?: Element | null })._fipFocus;
   backdrop.remove();
   if (restore instanceof HTMLElement && restore.isConnected) restore.focus();
@@ -673,7 +718,7 @@ function removeNotice(form: HTMLFormElement): void {
 function showNotice(
   form: HTMLFormElement,
   text: string,
-  options: { dismissible?: boolean } = {},
+  options: { dismissible?: boolean; onDismiss?: () => void } = {},
 ): HTMLElement {
   ensureNoticeStyles();
   let backdrop = notices.get(form);
@@ -698,14 +743,15 @@ function showNotice(
       close.type = 'button';
       close.className = `${NOTICE_CLASS}-close`;
       close.setAttribute('aria-label', 'Close');
-      close.addEventListener('click', () => removeNotice(form));
+      close.addEventListener('click', () => removeNotice(form, true));
       notice.appendChild(close);
       backdrop.addEventListener('click', (e) => {
-        if (e.target === backdrop) removeNotice(form);
+        if (e.target === backdrop) removeNotice(form, true);
       });
       notice.addEventListener('keydown', (e) => {
-        if ((e as KeyboardEvent).key === 'Escape') removeNotice(form);
+        if ((e as KeyboardEvent).key === 'Escape') removeNotice(form, true);
       });
+      (backdrop as HTMLElement & { _fipDismiss?: () => void })._fipDismiss = options.onDismiss;
     }
     backdrop.appendChild(notice);
     (backdrop as HTMLElement & { _fipFocus?: Element | null })._fipFocus = document.activeElement;

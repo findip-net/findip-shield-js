@@ -1,6 +1,6 @@
-import { ALLOWED_CONTEXT_FIELDS } from '../core/config';
-import { isIdentityCiphertext } from '../core/identify';
-import { isPlainObject } from './object';
+import { ALLOWED_CONTEXT_FIELDS } from '../core/config.js';
+import { isIdentityCiphertext } from '../core/identify.js';
+import { isPlainObject } from './object.js';
 
 const EMAIL_PATTERN = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PHONE_PATTERN = /^[+]?[\d\s().-]{7,}$/;

@@ -5,14 +5,14 @@ import {
   VALID_EVENTS,
   type Integration,
   type PrivacyMode,
-} from './config';
-import { getEffectivePrivacyMode, getRetentionHint } from './consent';
-import { state } from './state';
-import { collectBrowserContext } from '../collectors/browser';
-import { isGtmPresent } from '../collectors/gtm';
-import { collectPageContext } from '../collectors/page';
-import type { FormMetadata } from '../collectors/forms';
-import { sanitizeCustomerContext } from '../utils/safe';
+} from './config.js';
+import { getEffectivePrivacyMode, getRetentionHint } from './consent.js';
+import { state } from './state.js';
+import { collectBrowserContext } from '../collectors/browser.js';
+import { isGtmPresent } from '../collectors/gtm.js';
+import { collectPageContext } from '../collectors/page.js';
+import type { FormMetadata } from '../collectors/forms.js';
+import { sanitizeCustomerContext } from '../utils/safe.js';
 
 export interface EventMeta {
   name: string;

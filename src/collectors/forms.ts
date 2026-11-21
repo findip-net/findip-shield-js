@@ -1,7 +1,7 @@
-import { containsSensitivePattern, isSensitiveFieldName } from '../utils/safe';
-import { fnv1a } from '../utils/hash';
-import { inferPageEvent, mapViewToAttemptEvent, mapViewToPaymentAttempt } from './url-inference';
-import { getPagePath, getPageTitle } from './page';
+import { containsSensitivePattern, isSensitiveFieldName } from '../utils/safe.js';
+import { fnv1a } from '../utils/hash.js';
+import { inferPageEvent, mapViewToAttemptEvent, mapViewToPaymentAttempt } from './url-inference.js';
+import { getPagePath, getPageTitle } from './page.js';
 
 export type SubmitTextType =
   | 'signup'

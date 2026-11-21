@@ -2,6 +2,17 @@
 
 All notable changes to this package are documented here.
 
+## Unreleased
+
+### Fixed
+
+- The package's types now resolve under TypeScript's `node16` and `nodenext`
+  module resolution, for both `import` and `require`. The declaration files
+  used relative imports without a file extension, which TypeScript does not
+  follow in an ES module package under those settings, so most exports were
+  typed as `any`. No runtime change: the built bundles are byte-for-byte the
+  same. (#29)
+
 ## 1.13.1 - 2026-11-04
 
 ### Fixed

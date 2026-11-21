@@ -5,10 +5,10 @@ import {
   VISITOR_COOKIE_NAME,
   VISITOR_STORAGE_KEY,
   type ResolvedConfig,
-} from './config';
-import { deleteCookie, getCookie, setCookie } from './cookies';
-import { ensureSessionId, ensureVisitorId } from './ids';
-import { getEffectivePrivacyMode, shouldCollectVisitorId } from './consent';
+} from './config.js';
+import { deleteCookie, getCookie, setCookie } from './cookies.js';
+import { ensureSessionId, ensureVisitorId } from './ids.js';
+import { getEffectivePrivacyMode, shouldCollectVisitorId } from './consent.js';
 import {
   getLocalStorage,
   getMemoryFallback,
@@ -19,13 +19,13 @@ import {
   setLocalStorage,
   setMemoryFallback,
   setSessionStorage,
-} from './storage';
-import { state, type SessionPersistence } from './state';
+} from './storage.js';
+import { state, type SessionPersistence } from './state.js';
 import {
   clearWindowNameSession,
   readWindowNameSession,
   writeWindowNameSession,
-} from './window-name';
+} from './window-name.js';
 
 export function initializeSessionIds(config: ResolvedConfig): void {
   state.session.sessionId = resolveSessionId(config);

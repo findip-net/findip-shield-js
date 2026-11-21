@@ -1,16 +1,16 @@
-import { QUEUE_MAX_SIZE } from '../core/config';
-import { isTrackingAllowed } from '../core/consent';
-import { buildPayload, enforcePayloadSize, type EventMeta } from '../core/payload';
-import { adoptServerSessionId, getSession, refreshSessionId } from '../core/session-ids';
-import { state } from '../core/state';
-import { getRetryDelay, sendPayload, shouldRetry, type TrackResponse } from '../core/transport';
-import { pushRiskResult, readDataLayerContext } from '../collectors/gtm';
-import type { FormMetadata } from '../collectors/forms';
-import { ensureIdentityEncrypted } from '../core/identify';
-import { applyTrackResponse } from '../core/enforcement';
-import { sanitizeCustomerContext } from '../utils/safe';
-import { isPlainObject } from '../utils/object';
-import { debug } from '../utils/logger';
+import { QUEUE_MAX_SIZE } from '../core/config.js';
+import { isTrackingAllowed } from '../core/consent.js';
+import { buildPayload, enforcePayloadSize, type EventMeta } from '../core/payload.js';
+import { adoptServerSessionId, getSession, refreshSessionId } from '../core/session-ids.js';
+import { state } from '../core/state.js';
+import { getRetryDelay, sendPayload, shouldRetry, type TrackResponse } from '../core/transport.js';
+import { pushRiskResult, readDataLayerContext } from '../collectors/gtm.js';
+import type { FormMetadata } from '../collectors/forms.js';
+import { ensureIdentityEncrypted } from '../core/identify.js';
+import { applyTrackResponse } from '../core/enforcement.js';
+import { sanitizeCustomerContext } from '../utils/safe.js';
+import { isPlainObject } from '../utils/object.js';
+import { debug } from '../utils/logger.js';
 
 export interface TrackOptions {
   source?: string;

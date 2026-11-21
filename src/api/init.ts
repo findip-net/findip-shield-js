@@ -1,28 +1,28 @@
-import type { FindIPConfig } from '../core/config';
-import { parseScriptTagConfig, resolveConfig, SDK_VERSION } from '../core/config';
-import { applyConsent, isTrackingAllowed } from '../core/consent';
+import type { FindIPConfig } from '../core/config.js';
+import { parseScriptTagConfig, resolveConfig, SDK_VERSION } from '../core/config.js';
+import { applyConsent, isTrackingAllowed } from '../core/consent.js';
 import {
   hasSessionStarted,
   initializeSessionIds,
   markSessionStarted,
   refreshSessionId,
-} from '../core/session-ids';
-import { state } from '../core/state';
+} from '../core/session-ids.js';
+import { state } from '../core/state.js';
 import {
   attachFormListeners,
   inferFormEvent,
   observeFormViews,
   scanFormMetadata,
-} from '../collectors/forms';
-import { inferPageEvent } from '../collectors/url-inference';
-import { isGtmPresent } from '../collectors/gtm';
-import { hasIdentity, resolveIdentity, type IdentifyOptions } from '../core/identify';
-import { trackEvent } from './track';
-import { attachEnforcement, resolveFormEvent } from '../core/enforcement';
-import { requestFormSnapshot } from '../core/snapshot';
-import { attachSessionField } from '../core/session-field';
-import { attachLinkSession, consumeLinkToken } from '../core/link-session';
-import { debug, warn } from '../utils/logger';
+} from '../collectors/forms.js';
+import { inferPageEvent } from '../collectors/url-inference.js';
+import { isGtmPresent } from '../collectors/gtm.js';
+import { hasIdentity, resolveIdentity, type IdentifyOptions } from '../core/identify.js';
+import { trackEvent } from './track.js';
+import { attachEnforcement, resolveFormEvent } from '../core/enforcement.js';
+import { requestFormSnapshot } from '../core/snapshot.js';
+import { attachSessionField } from '../core/session-field.js';
+import { attachLinkSession, consumeLinkToken } from '../core/link-session.js';
+import { debug, warn } from '../utils/logger.js';
 
 let unloadHandlerAttached = false;
 

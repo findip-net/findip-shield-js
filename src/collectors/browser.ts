@@ -1,4 +1,4 @@
-import type { PrivacyMode } from '../core/config';
+import type { PrivacyMode } from '../core/config.js';
 
 export interface BrowserContext {
   user_agent: string;

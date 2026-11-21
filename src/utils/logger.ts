@@ -1,4 +1,4 @@
-import { state } from '../core/state';
+import { state } from '../core/state.js';
 
 export function debug(...args: unknown[]): void {
   if (state.config?.debug) {

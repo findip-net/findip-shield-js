@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -36,3 +37,58 @@ for (const [name, target] of Object.entries(manifest.bin ?? {})) {
 
 console.log('Verified the CLI entry.');
 
+
+// The published types must resolve for consumers on TypeScript's Node module
+// resolution ("node16"/"nodenext"), for both import and require. A relative
+// import without a file extension in a .d.ts file makes TypeScript give up
+// silently there and type every export as `any`.
+const consumer = mkdtempSync(join(tmpdir(), 'findip-shield-types-'));
+try {
+  mkdirSync(join(consumer, 'node_modules', '@findip'), { recursive: true });
+  symlinkSync(root, join(consumer, 'node_modules', '@findip', 'shield'), 'junction');
+  const notAny = (name) => `const _${name}: IsAny<typeof ${name}> = false;`;
+  const assertions = [
+    'type IsAny<T> = 0 extends 1 & T ? true : false;',
+    ...expectedExports.map(notAny),
+    'const _options: IsAny<IdentifyOptions> = false;',
+    `void [${expectedExports.map((name) => `_${name}`).join(', ')}, _options];`,
+  ].join('\n');
+  const names = expectedExports.join(', ');
+  writeFileSync(
+    join(consumer, 'esm.mts'),
+    `import { ${names}, type IdentifyOptions } from '@findip/shield';\n${assertions}\n`,
+  );
+  writeFileSync(
+    join(consumer, 'cjs.cts'),
+    `import shield = require('@findip/shield');\nconst { ${names} } = shield;\ntype IdentifyOptions = shield.IdentifyOptions;\n${assertions}\n`,
+  );
+  writeFileSync(
+    join(consumer, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        module: 'nodenext',
+        moduleResolution: 'nodenext',
+        strict: true,
+        noEmit: true,
+        // Check the package's own .d.ts files too, so an import that does
+        // not resolve inside them is an error here.
+        skipLibCheck: false,
+        lib: ['ES2020', 'DOM', 'DOM.Iterable'],
+        types: [],
+      },
+      files: ['esm.mts', 'cjs.cts'],
+    }),
+  );
+  try {
+    execFileSync(process.execPath, [join(root, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', consumer], {
+      encoding: 'utf8',
+      stdio: 'pipe',
+    });
+  } catch (error) {
+    throw new Error(`Published types do not resolve under nodenext:\n${error.stdout ?? error.message}`);
+  }
+} finally {
+  rmSync(consumer, { recursive: true, force: true });
+}
+
+console.log('Verified the published types under nodenext (import and require).');

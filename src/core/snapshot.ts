@@ -13,10 +13,10 @@
  * and posted to Shield next to /track. Skipped in strict privacy mode, on
  * data-saver connections, in hidden tabs, and when the site opts out.
  */
-import type { FormMetadata } from '../collectors/forms';
-import { snapshotEndpoint } from './config';
-import { state } from './state';
-import { debug } from '../utils/logger';
+import type { FormMetadata } from '../collectors/forms.js';
+import { snapshotEndpoint } from './config.js';
+import { state } from './state.js';
+import { debug } from '../utils/logger.js';
 
 export const SNAPSHOT_MAX_BYTES = 200_000;
 const MAX_WIDTH = 900;

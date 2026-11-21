@@ -1,4 +1,4 @@
-import { getPagePath, getPageTitle } from './page';
+import { getPagePath, getPageTitle } from './page.js';
 
 export type InferredPageEvent =
   | 'signup_view'

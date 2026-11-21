@@ -1,6 +1,6 @@
-import { init, identify, autoInitFromScript, version } from './api/init';
-import { track } from './api/track';
-import { getSession, setConsent } from './api/session';
+import { init, identify, autoInitFromScript, version } from './api/init.js';
+import { track } from './api/track.js';
+import { getSession, setConsent } from './api/session.js';
 
 export interface FindIPGlobal {
   init: typeof init;
@@ -31,4 +31,4 @@ if (typeof window !== 'undefined') {
 }
 
 export { init, identify, track, getSession, setConsent, version };
-export type { IdentifyOptions } from './core/identify';
+export type { IdentifyOptions } from './core/identify.js';

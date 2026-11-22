@@ -1,7 +1,7 @@
-import type { ConsentState, PrivacyMode, ResolvedConfig } from './config';
-import type { IdentifyOptions, IdentityContext } from './identify';
-import type { EnforcementConfig, RuleInPageOverride } from './enforcement';
-import type { TrackResponse } from './transport';
+import type { ConsentState, PrivacyMode, ResolvedConfig } from './config.js';
+import type { IdentifyOptions, IdentityContext } from './identify.js';
+import type { EnforcementConfig, RuleInPageOverride } from './enforcement.js';
+import type { TrackResponse } from './transport.js';
 
 export interface SessionInfo {
   sessionId: string;

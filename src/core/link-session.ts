@@ -1,5 +1,5 @@
-import { isTrackingAllowed } from './consent';
-import { state } from './state';
+import { isTrackingAllowed } from './consent.js';
+import { state } from './state.js';
 
 /**
  * Opt-in (`linkSession`): carry the session ID across a link click for a

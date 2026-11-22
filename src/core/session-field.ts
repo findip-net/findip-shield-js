@@ -1,5 +1,5 @@
-import { isTrackingAllowed } from './consent';
-import { state } from './state';
+import { isTrackingAllowed } from './consent.js';
+import { state } from './state.js';
 
 /**
  * Opt-in (`sessionField`): a hidden input carrying the Shield session ID in

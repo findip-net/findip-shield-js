@@ -1,6 +1,6 @@
-import { identityKeyEndpoint } from './config';
-import { state } from './state';
-import { debug } from '../utils/logger';
+import { identityKeyEndpoint } from './config.js';
+import { state } from './state.js';
+import { debug } from '../utils/logger.js';
 
 /**
  * Who the current visitor is, in the customer's own terms. Nothing here is

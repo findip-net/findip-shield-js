@@ -1,7 +1,7 @@
 declare const __SDK_VERSION__: string;
 
-import type { IdentifyOptions } from './identify';
-import { resolveSessionFieldName } from './session-field';
+import type { IdentifyOptions } from './identify.js';
+import { resolveSessionFieldName } from './session-field.js';
 
 export const SDK_NAME = 'findip-shield-js';
 export const SDK_VERSION = typeof __SDK_VERSION__ !== 'undefined' ? __SDK_VERSION__ : '1.0.0';

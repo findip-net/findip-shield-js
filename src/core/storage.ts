@@ -1,5 +1,5 @@
-import type { PrivacyMode } from './config';
-import { SESSION_STORAGE_KEY } from './config';
+import type { PrivacyMode } from './config.js';
+import { SESSION_STORAGE_KEY } from './config.js';
 
 const memoryStore = new Map<string, string>();
 

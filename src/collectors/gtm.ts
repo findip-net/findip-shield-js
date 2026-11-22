@@ -1,5 +1,5 @@
-import { state } from '../core/state';
-import type { TrackResponse } from '../core/transport';
+import { state } from '../core/state.js';
+import type { TrackResponse } from '../core/transport.js';
 
 export interface DataLayerEntry {
   event: string;

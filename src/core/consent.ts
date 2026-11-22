@@ -1,5 +1,5 @@
-import type { ConsentState, NoConsentMode, PrivacyMode } from './config';
-import { state } from './state';
+import type { ConsentState, NoConsentMode, PrivacyMode } from './config.js';
+import { state } from './state.js';
 
 export function normalizeConsent(consent: ConsentState): {
   granted: boolean;

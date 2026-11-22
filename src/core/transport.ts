@@ -1,4 +1,4 @@
-import { debug, warn } from '../utils/logger';
+import { debug, warn } from '../utils/logger.js';
 
 export interface TrackResponse {
   request_id?: string;

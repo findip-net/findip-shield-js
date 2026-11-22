@@ -1,7 +1,7 @@
-import type { ConsentState } from '../core/config';
-import { applyConsent } from '../core/consent';
-import { forgetVisitorId, getSession, syncVisitorId } from '../core/session-ids';
-import { state } from '../core/state';
+import type { ConsentState } from '../core/config.js';
+import { applyConsent } from '../core/consent.js';
+import { forgetVisitorId, getSession, syncVisitorId } from '../core/session-ids.js';
+import { state } from '../core/state.js';
 
 export function setConsent(consent: ConsentState): void {
   // A visitor who had agreed and now refuses: the visitor ID leaves the

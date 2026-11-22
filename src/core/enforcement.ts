@@ -1,10 +1,10 @@
-import { identityKeyEndpoint } from './config';
-import { state } from './state';
-import { challengePassedInWindowName, refreshSessionId } from './session-ids';
-import type { TrackResponse } from './transport';
-import { inferFormEvent } from '../collectors/forms';
-import { trackEvent } from '../api/track';
-import { debug } from '../utils/logger';
+import { identityKeyEndpoint } from './config.js';
+import { state } from './state.js';
+import { challengePassedInWindowName, refreshSessionId } from './session-ids.js';
+import type { TrackResponse } from './transport.js';
+import { inferFormEvent } from '../collectors/forms.js';
+import { trackEvent } from '../api/track.js';
+import { debug } from '../utils/logger.js';
 
 /**
  * In-page enforcement (Shield dashboard → Settings → Enforcement).

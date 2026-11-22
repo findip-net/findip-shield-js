@@ -2,7 +2,7 @@
 
 All notable changes to this package are documented here.
 
-## Unreleased
+## 1.13.2 - 2026-11-22
 
 ### Fixed
 
@@ -10,8 +10,8 @@ All notable changes to this package are documented here.
   module resolution, for both `import` and `require`. The declaration files
   used relative imports without a file extension, which TypeScript does not
   follow in an ES module package under those settings, so most exports were
-  typed as `any`. No runtime change: the built bundles are byte-for-byte the
-  same. (#29)
+  typed as `any`. No runtime change: the built bundles differ from 1.13.1 only
+  in the version number. (#29)
 
 ## 1.13.1 - 2026-11-04
 
